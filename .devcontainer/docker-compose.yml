@@ -1,0 +1,30 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        TZ: Asia/Tokyo
+        CLAUDE_CODE_VERSION: latest
+        GIT_DELTA_VERSION: "0.18.2"
+        ZSH_IN_DOCKER_VERSION: "1.2.0"
+    volumes:
+      - ..:/workspace:cached
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    command: sleep infinity
+
+  # --- 将来追加予定 ---
+  # db:
+  #   image: supabase/postgres:15
+  #   ports:
+  #     - "54322:5432"
+  #   environment:
+  #     POSTGRES_PASSWORD: postgres
+  #     POSTGRES_DB: yaminabe
+  #   volumes:
+  #     - db-data:/var/lib/postgresql/data
+
+# volumes:
+#   db-data:

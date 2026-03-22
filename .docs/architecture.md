@@ -9,38 +9,34 @@
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                     クライアント                         │
-│  ┌───────────────┐    ┌───────────────────┐            │
-│  │  Next.js       │    │  React Native     │            │
-│  │  (Web版)       │    │  (Expo/iOS/Android)│            │
-│  └───────┬───────┘    └────────┬──────────┘            │
-│          │    共有ロジック       │                       │
-│          │  (packages/shared)   │                       │
-│          └──────────┬──────────┘                        │
-└─────────────────────┼──────────────────────────────────┘
-                      │ REST API / Server Actions
-                      ▼
-┌─────────────────────────────────────────────────────────┐
-│                  Next.js API Routes                     │
-│  ├── /api/feed         (フィード取得・更新)              │
-│  ├── /api/bookmark     (ブックマーク操作)                │
-│  ├── /api/history      (閲覧履歴)                       │
-│  ├── /api/preferences  (パーソナライズ設定)              │
-│  └── /api/cron/collect (定時コンテンツ収集)              │
-├─────────────────────────────────────────────────────────┤
-│                    Services                             │
-│  ├── feedService.ts          (フィード生成・配信)        │
-│  ├── collectorService.ts     (コンテンツ収集)            │
-│  ├── personalizationService.ts (パーソナライズエンジン)   │
-│  ├── bookmarkService.ts      (ブックマーク管理)          │
-│  ├── historyService.ts       (閲覧履歴管理)              │
-│  └── subscriptionService.ts  (課金・プラン管理)          │
-└─────────────────────────────────────────────────────────┘
-                      │
-                      ▼
+│  ┌───────────────────────────────────────────┐          │
+│  │  Next.js (Web版)                          │          │
+│  │  ├── Server Components (データ取得・表示)  │          │
+│  │  └── Server Actions (データ更新)           │          │
+│  └──────────────────────┬────────────────────┘          │
+│                         │                               │
+│  ※ React Native (Expo) は将来対応。MVP時点ではWeb版のみ  │
+└─────────────────────────┼───────────────────────────────┘
+                          │ Prisma
+                          ▼
 ┌─────────────────────────────────────────────────────────┐
 │                  Supabase                               │
 │  └── PostgreSQL (データ永続化)                           │
-└─────────────────────────────────────────────────────────┘
+└─────────────────────────┬───────────────────────────────┘
+                          │
+              ┌───────────┴───────────┐
+              ▼                       ▼
+┌──────────────────────┐  ┌──────────────────────────────┐
+│  NextAuth (Auth.js)  │  │  Python 日次バッチ            │
+│  ├── Credentials     │  │  ├── コンテンツ収集            │
+│  │   Provider        │  │  │   (はてブAPI・RSS)          │
+│  ├── DBセッション     │  │  ├── タグ自動付与             │
+│  └── Prisma Adapter  │  │  ├── IPW weight更新           │
+├──────────────────────┤  │  └── カテゴリ・タグweight調整  │
+│  Resend              │  └──────────────────────────────┘
+│  └── パスワード       │
+│      リセットメール   │
+└──────────────────────┘
 ```
 
 ## レイヤー構成
@@ -48,32 +44,49 @@
 ```
 [ページ/コンポーネント]  ← UI表示のみ
         ↓
-[Server Actions / API Routes]  ← エンドポイント
+[Server Components]  ← データ取得・表示
+[Server Actions]     ← データ更新（ユーザー操作）
         ↓
 [Services]  ← ビジネスロジック
         ↓
-[Supabase Client / Prisma]  ← DB操作
+[Prisma]  ← DB操作
 ```
+
+※ API Routesは使用しない（外部公開APIなし）
 
 ## 認証フロー
 
 ```
-[Web / アプリ]
-      │
-      ▼
+[Web]
+  │
+  ▼
 [NextAuth (Auth.js) + Prisma Adapter]
-      ├── Email + Password
-      ├── Google OAuth（将来）
-      └── Apple Sign-In（将来）
-      │
-      ▼
-[Cookie セッション（DB管理）]
-      │
-      ▼
+  ├── Credentials Provider (Email + Password)
+  └── OAuth Provider（将来: Google, Apple等）
+  │
+  ▼
+[DBセッション（sessionテーブル管理）]
+  ├── サーバー側でセッション無効化が可能
+  └── Cookie にセッションIDのみ保持
+  │
+  ▼
 [Prisma where句: ユーザーは自分のデータのみアクセス可能]
 ```
 
-※認証フローの詳細設計（自動ログイン、セッション戦略等）はアプリ仕様策定時に決定
+### パスワードリセット
+
+```
+[パスワードリセット要求]
+  │
+  ▼
+[verification_tokenテーブルにトークン発行（有効期限10分）]
+  │
+  ▼
+[Resend経由でリセットリンクをメール送信]
+  │
+  ▼
+[リンク押下 → トークン検証 → パスワード変更画面]
+```
 
 ## monorepo構成
 
@@ -81,21 +94,27 @@
 yaminabe/
 ├── apps/
 │   ├── web/                 ← Next.js (Web版)
-│   └── mobile/              ← React Native / Expo (アプリ版)
+│   └── mobile/              ← React Native / Expo（将来対応）
+├── batch/                   ← Python 日次バッチ
 ├── packages/
 │   └── shared/              ← 共有ロジック（型定義・ユーティリティ）
 ├── turbo.json
 └── package.json
 ```
 
+※ MVP時点ではWeb版のみ。mobile/は将来対応
+
 ## 技術スタック
 
 | レイヤー | 技術 |
 |---------|------|
 | Web フロントエンド | Next.js (React) |
-| モバイル フロントエンド | React Native (Expo) |
-| バックエンド / API | Next.js API Routes |
-| 認証 | NextAuth (Auth.js) + Prisma Adapter |
+| モバイル フロントエンド | React Native (Expo)（将来対応） |
+| サーバーサイド | Server Components / Server Actions |
+| 日次バッチ | Python（収集・タグ付与・weight更新） |
+| 認証 | NextAuth (Auth.js) + Credentials Provider + Prisma Adapter |
+| セッション管理 | DBセッション（sessionテーブル） |
+| メール送信 | Resend（パスワードリセット） |
 | データベース | Supabase PostgreSQL |
 | ORM | Prisma |
 | バリデーション | Zod |

@@ -41,7 +41,7 @@
 - [x] コーディング規約（`.docs/coding-style.md`）— レビュー完了
 - [x] DB定義書・ER図（`.docs/db-schema.md`, `.docs/er-diagram.md`）— レビュー完了
 - [x] アプリ仕様書レビュー（`.docs/spec.md`）— レビュー完了
-- [ ] シーケンス図（`.docs/sequence.md`）— spec.mdレビュー後に着手
+- [x] シーケンス図（`.docs/sequence.md`）— 作成完了
 - [ ] 全ドキュメント最終確認
 
 ### 3. モック工程（W2〜W3）

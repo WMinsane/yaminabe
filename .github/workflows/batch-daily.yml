@@ -1,0 +1,41 @@
+name: Daily Batch - Collect & Classify
+
+on:
+  schedule:
+    - cron: '0 21 * * *' # UTC 21:00 = JST 06:00
+  workflow_dispatch:
+
+jobs:
+  batch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: batch
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: batch/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Collect articles
+        run: python collect_all.py
+
+      - name: Register to DB
+        env:
+          DATABASE_URL: ${{ secrets.BATCH_DATABASE_URL }}
+        run: python register.py
+
+      - name: Auto-classify (autotag)
+        if: success()
+        env:
+          DATABASE_URL: ${{ secrets.BATCH_DATABASE_URL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python autotag.py

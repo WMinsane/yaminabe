@@ -5,3 +5,21 @@ node_modules/
 *.log
 .DS_Store
 Thumbs.db
+
+# Next.js
+.next/
+out/
+
+# Turborepo
+.turbo/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Build
+dist/
+
+# Batch outputs
+batch/output_*.json

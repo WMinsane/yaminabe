@@ -1,0 +1,299 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String         @id @default(cuid())
+  name           String?        @db.VarChar(100)
+  email          String         @unique @db.VarChar(255)
+  emailVerified  DateTime?      @map("email_verified")
+  image          String?        @db.VarChar(500)
+  passwordHash   String         @map("password_hash") @db.VarChar(255)
+  plan           String         @default("free") @db.VarChar(10)
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  accounts       Account[]
+  sessions       Session[]
+  userActions    UserAction[]
+  userCategories UserCategory[]
+  userSetting    UserSetting?
+  userTags       UserTag[]
+
+  @@map("user")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id") @db.VarChar(25)
+  type              String  @db.VarChar(20)
+  provider          String  @db.VarChar(50)
+  providerAccountId String  @map("provider_account_id") @db.VarChar(255)
+  refreshToken      String? @map("refresh_token")
+  accessToken       String? @map("access_token")
+  expiresAt         Int?    @map("expires_at")
+  tokenType         String? @map("token_type") @db.VarChar(50)
+  scope             String? @db.VarChar(255)
+  idToken           String? @map("id_token")
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("account")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id") @db.VarChar(25)
+  sessionToken String   @unique @map("session_token") @db.VarChar(255)
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model VerificationToken {
+  identifier String   @db.VarChar(255)
+  token      String   @unique @db.VarChar(255)
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_token")
+}
+
+model CodeMaster {
+  id        Int       @id @default(autoincrement())
+  category  String    @db.VarChar(30)
+  codeValue String    @map("code_value") @db.VarChar(20)
+  codeLabel String    @map("code_label") @db.VarChar(50)
+  sortOrder Int       @map("sort_order") @db.SmallInt
+  validFrom DateTime  @map("valid_from") @db.Date
+  validTo   DateTime? @map("valid_to") @db.Date
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  updatedBy String?   @map("updated_by") @db.VarChar(25)
+  deletedAt DateTime? @map("deleted_at")
+
+  @@unique([category, codeValue, validFrom])
+  @@map("code_master")
+}
+
+model Category {
+  id             Int            @id @default(autoincrement())
+  parentId       Int?           @map("parent_id")
+  name           String         @unique @db.VarChar(50)
+  slug           String         @unique @db.VarChar(30)
+  description    String?        @db.VarChar(200)
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  updatedBy      String?        @map("updated_by") @db.VarChar(25)
+  deletedAt      DateTime?      @map("deleted_at")
+  parent         Category?      @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children       Category[]     @relation("CategoryHierarchy")
+  contents       Content[]
+  userCategories UserCategory[]
+
+  @@index([parentId])
+  @@map("category")
+}
+
+model Tag {
+  id          Int          @id @default(autoincrement())
+  name        String       @unique @db.VarChar(100)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  updatedBy   String?      @map("updated_by") @db.VarChar(25)
+  deletedAt   DateTime?    @map("deleted_at")
+  contentTags ContentTag[]
+  userTags    UserTag[]
+
+  @@map("tag")
+}
+
+model FeedSource {
+  id            Int       @id @default(autoincrement())
+  name          String    @db.VarChar(100)
+  url           String    @unique @db.VarChar(500)
+  type          String    @db.VarChar(20)
+  isActive      Boolean   @default(true) @map("is_active")
+  lastFetchedAt DateTime? @map("last_fetched_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  updatedBy     String?   @map("updated_by") @db.VarChar(25)
+  deletedAt     DateTime? @map("deleted_at")
+  contents      Content[]
+
+  @@map("feed_source")
+}
+
+model Content {
+  id                 Int                 @id @default(autoincrement())
+  url                String              @unique @db.VarChar(2000)
+  title              String              @db.VarChar(500)
+  source             String              @db.VarChar(100)
+  categoryId         Int?                @map("category_id")
+  feedSourceId       Int?                @map("feed_source_id")
+  author             String?             @db.VarChar(200)
+  summary            String?
+  bookmarkCount      Int                 @default(0) @map("bookmark_count")
+  meta               Json?
+  publishedAt        DateTime?           @map("published_at")
+  collectedAt        DateTime            @default(now()) @map("collected_at")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+  updatedBy          String?             @map("updated_by") @db.VarChar(25)
+  deletedAt          DateTime?           @map("deleted_at")
+  category           Category?           @relation(fields: [categoryId], references: [id])
+  feedSource         FeedSource?         @relation(fields: [feedSourceId], references: [id])
+  contentTags        ContentTag[]
+  deliveryBatchItems DeliveryBatchItem[]
+  userActions        UserAction[]
+  weeklyRankings     WeeklyRanking[]
+
+  @@index([categoryId])
+  @@map("content")
+}
+
+model ContentTag {
+  contentId Int       @map("content_id")
+  tagId     Int       @map("tag_id")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  updatedBy String?   @map("updated_by") @db.VarChar(25)
+  deletedAt DateTime? @map("deleted_at")
+  content   Content   @relation(fields: [contentId], references: [id])
+  tag       Tag       @relation(fields: [tagId], references: [id])
+
+  @@id([contentId, tagId])
+  @@map("content_tag")
+}
+
+model UserSetting {
+  id           Int       @id @default(autoincrement())
+  userId       String    @unique @map("user_id") @db.VarChar(25)
+  deliveryMode String    @default("omakase") @map("delivery_mode") @db.VarChar(20)
+  omakaseLevel Int       @default(3) @map("omakase_level") @db.SmallInt
+  displayMode  String    @default("dark") @map("display_mode") @db.VarChar(10)
+  excerptStyle String    @default("title_only") @map("excerpt_style") @db.VarChar(20)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  updatedBy    String?   @map("updated_by") @db.VarChar(25)
+  deletedAt    DateTime? @map("deleted_at")
+  user         User      @relation(fields: [userId], references: [id])
+
+  @@map("user_setting")
+}
+
+model UserCategory {
+  userId     String    @map("user_id") @db.VarChar(25)
+  categoryId Int       @map("category_id")
+  weight     Decimal   @default(1.00) @db.Decimal(5, 2)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  updatedBy  String?   @map("updated_by") @db.VarChar(25)
+  deletedAt  DateTime? @map("deleted_at")
+  category   Category  @relation(fields: [categoryId], references: [id])
+  user       User      @relation(fields: [userId], references: [id])
+
+  @@id([userId, categoryId])
+  @@map("user_category")
+}
+
+model UserTag {
+  userId    String    @map("user_id") @db.VarChar(25)
+  tagId     Int       @map("tag_id")
+  weight    Decimal   @default(1.00) @db.Decimal(5, 2)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  updatedBy String?   @map("updated_by") @db.VarChar(25)
+  deletedAt DateTime? @map("deleted_at")
+  tag       Tag       @relation(fields: [tagId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@id([userId, tagId])
+  @@map("user_tag")
+}
+
+model UserAction {
+  userId       String    @map("user_id") @db.VarChar(25)
+  contentId    Int       @map("content_id")
+  isClicked    Boolean   @default(false) @map("is_clicked")
+  clickedAt    DateTime? @map("clicked_at")
+  isBounced    Boolean   @default(false) @map("is_bounced")
+  bouncedAt    DateTime? @map("bounced_at")
+  isBookmarked Boolean   @default(false) @map("is_bookmarked")
+  bookmarkedAt DateTime? @map("bookmarked_at")
+  memo         String?   @db.VarChar(1000)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  updatedBy    String?   @map("updated_by") @db.VarChar(25)
+  deletedAt    DateTime? @map("deleted_at")
+  content      Content   @relation(fields: [contentId], references: [id])
+  user         User      @relation(fields: [userId], references: [id])
+
+  @@id([userId, contentId])
+  @@index([userId, isBookmarked])
+  @@index([userId, isClicked, clickedAt])
+  @@map("user_action")
+}
+
+model DeliveryBatch {
+  id              Int                 @id @default(autoincrement())
+  deliveryMode    String              @map("delivery_mode") @db.VarChar(20)
+  categoryPattern String              @map("category_pattern") @db.VarChar(200)
+  executedAt      DateTime            @default(now()) @map("executed_at")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+  updatedBy       String?             @map("updated_by") @db.VarChar(25)
+  deletedAt       DateTime?           @map("deleted_at")
+  items           DeliveryBatchItem[]
+
+  @@index([executedAt])
+  @@map("delivery_batch")
+}
+
+model DeliveryBatchItem {
+  deliveryBatchId Int           @map("delivery_batch_id")
+  contentId       Int           @map("content_id")
+  position        Int           @db.SmallInt
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  updatedBy       String?       @map("updated_by") @db.VarChar(25)
+  deletedAt       DateTime?     @map("deleted_at")
+  content         Content       @relation(fields: [contentId], references: [id])
+  deliveryBatch   DeliveryBatch @relation(fields: [deliveryBatchId], references: [id])
+
+  @@id([deliveryBatchId, contentId])
+  @@map("delivery_batch_item")
+}
+
+model WeeklyRanking {
+  contentId     Int       @map("content_id")
+  weekStart     DateTime  @map("week_start") @db.Date
+  rankPosition  Int       @map("rank_position") @db.SmallInt
+  bookmarkCount Int       @map("bookmark_count")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  updatedBy     String?   @map("updated_by") @db.VarChar(25)
+  deletedAt     DateTime? @map("deleted_at")
+  content       Content   @relation(fields: [contentId], references: [id])
+
+  @@id([contentId, weekStart])
+  @@index([weekStart])
+  @@map("weekly_ranking")
+}
+
+model DomainBanlist {
+  id        Int       @id @default(autoincrement())
+  domain    String    @unique @db.VarChar(255)
+  reason    String?   @db.VarChar(500)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  updatedBy String?   @map("updated_by") @db.VarChar(25)
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("domain_banlist")
+}

@@ -17,6 +17,39 @@
     ]
   },
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "docker ps --filter name=yaminabe-db --format '{{.Status}}' | grep -q Up || docker compose -f \"$CLAUDE_PROJECT_DIR/docker-compose.yml\" up -d 2>&1; echo '{}'",
+            "timeout": 30,
+            "statusMessage": "Starting Docker containers..."
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if pgrep -f 'next dev.*apps/web' > /dev/null 2>&1; then echo '{}'; else cd \"$CLAUDE_PROJECT_DIR\" && nohup npx turbo dev --filter=web > /dev/null 2>&1 & sleep 3; echo '{\"systemMessage\":\"Next.js dev server started\"}'; fi",
+            "timeout": 15,
+            "statusMessage": "Starting Next.js dev server..."
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"import sys,json,subprocess;d=json.load(sys.stdin);p=d.get('prompt','');do_start='アプリ起動' in p;r=subprocess.run(['docker','ps','--filter','name=yaminabe-db','--format','{{.Status}}'],capture_output=True,text=True) if do_start else None;running=r and 'Up' in r.stdout;subprocess.run(['docker','compose','-f',sys.argv[1],'up','-d'],capture_output=True) if do_start and not running else None;print(json.dumps({'systemMessage':'Docker起動完了'}) if do_start and not running else json.dumps({'systemMessage':'Docker起動済み'}) if do_start else '{}')\" \"$CLAUDE_PROJECT_DIR/docker-compose.yml\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash",

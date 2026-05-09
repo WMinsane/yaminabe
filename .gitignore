@@ -23,3 +23,6 @@ dist/
 
 # Batch outputs
 batch/output_*.json
+
+# Supabase CLI
+batch/supabase/.temp/

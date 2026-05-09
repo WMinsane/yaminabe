@@ -1,0 +1,6 @@
+{
+  "buildCommand": "npx prisma migrate deploy --schema=packages/db/prisma/schema.prisma && npx turbo build --filter=web",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "outputDirectory": "apps/web/.next"
+}

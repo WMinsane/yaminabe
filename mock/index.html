@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yaminabe — モックプレビュー</title>
+  <link rel="stylesheet" href="styles/reset.css">
+  <link rel="stylesheet" href="styles/tokens.css">
+  <link rel="stylesheet" href="styles/index.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <h1>闇鍋 Yaminabe</h1>
+    <p class="subtitle">デザイントークン プレビュー — モック工程 Phase 1</p>
+
+    <!-- 画面一覧 -->
+    <section>
+      <h2 class="section-title">S-01 フィード</h2>
+      <div class="component-row" style="margin-bottom: var(--space-6)">
+        <a href="feed-dense.html" class="btn active">D: 高密度型</a>
+        <a href="feed-hybrid.html" class="btn active">BD: 混合型</a>
+      </div>
+
+      <h2 class="section-title">S-02 ライブラリ</h2>
+      <div class="component-row" style="margin-bottom: var(--space-6)">
+        <a href="library.html" class="btn active">フィルタ+メモモーダル型</a>
+      </div>
+
+      <h2 class="section-title">S-03 週次ランキング</h2>
+      <div class="component-row" style="margin-bottom: var(--space-6)">
+        <a href="ranking-b.html" class="btn active">全カテゴリ一覧型</a>
+      </div>
+
+      <h2 class="section-title">S-04 ユーザー設定</h2>
+      <div class="component-row" style="margin-bottom: var(--space-6)">
+        <a href="settings-c.html" class="btn active">カード分割型</a>
+      </div>
+
+      <h2 class="section-title">S-05 認証</h2>
+      <div class="component-row" style="margin-bottom: var(--space-6)">
+        <a href="auth-b.html" class="btn active">左右分割型</a>
+      </div>
+
+      <h2 class="section-title">S-06, S-07</h2>
+      <div class="component-row" style="margin-bottom: var(--space-8)">
+        <a href="password.html" class="btn active">パスワード変更</a>
+        <a href="error.html" class="btn active">エラー画面</a>
+      </div>
+    </section>
+
+    <div class="controls">
+      <button class="btn" id="theme-toggle" onclick="toggleDark()">ダークモード</button>
+    </div>
+
+    <!-- Colors -->
+    <section>
+      <h2 class="section-title">カラーパレット</h2>
+      <div class="swatch-grid">
+        <div class="swatch">
+          <div class="swatch-color" style="background: var(--color-bg)"></div>
+          <div class="swatch-label"><code>--color-bg</code></div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-color" style="background: var(--color-bg-secondary)"></div>
+          <div class="swatch-label"><code>--color-bg-secondary</code></div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-color" style="background: var(--color-bg-tertiary)"></div>
+          <div class="swatch-label"><code>--color-bg-tertiary</code></div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-color" style="background: var(--color-text)"></div>
+          <div class="swatch-label"><code>--color-text</code></div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-color" style="background: var(--color-text-secondary)"></div>
+          <div class="swatch-label"><code>--color-text-secondary</code></div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-color" style="background: var(--color-primary)"></div>
+          <div class="swatch-label"><code>--color-primary</code></div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-color" style="background: var(--color-primary-hover)"></div>
+          <div class="swatch-label"><code>--color-primary-hover</code></div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-color" style="background: var(--color-accent)"></div>
+          <div class="swatch-label"><code>--color-accent</code></div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-color" style="background: var(--color-danger)"></div>
+          <div class="swatch-label"><code>--color-danger</code></div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-color" style="background: var(--color-success)"></div>
+          <div class="swatch-label"><code>--color-success</code></div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-color" style="background: var(--color-border)"></div>
+          <div class="swatch-label"><code>--color-border</code></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Typography -->
+    <section>
+      <h2 class="section-title">タイポグラフィ</h2>
+      <div class="type-sample">
+        <div style="font-size: var(--font-size-2xl); font-weight: var(--font-weight-bold)">
+          2xl / Bold — 闇鍋で視野を広げる
+        </div>
+        <div style="font-size: var(--font-size-xl); font-weight: var(--font-weight-bold)">
+          xl / Bold — セクション見出し
+        </div>
+        <div style="font-size: var(--font-size-lg); font-weight: var(--font-weight-medium)">
+          lg / Medium — カードタイトル
+        </div>
+        <div style="font-size: var(--font-size-base)">
+          base — 本文テキスト。日本語の可読性を考慮した line-height: 1.7 を採用しています。
+        </div>
+        <div style="font-size: var(--font-size-sm); color: var(--color-text-secondary)">
+          sm / Secondary — はてなブックマーク · 2026-03-27 · 342 users
+        </div>
+        <div style="font-size: var(--font-size-xs); color: var(--color-text-tertiary)">
+          xs / Tertiary — バッジ・キャプション
+        </div>
+      </div>
+    </section>
+
+    <!-- Components -->
+    <section>
+      <h2 class="section-title">コンポーネント</h2>
+
+      <h3 style="font-size: var(--font-size-lg); margin-bottom: var(--space-4)">バッジ</h3>
+      <div class="component-row" style="margin-bottom: var(--space-6)">
+        <span class="badge badge-new">New</span>
+        <span class="badge badge-category">テクノロジー</span>
+        <span class="badge badge-category">サイエンス</span>
+        <span class="badge badge-category">教養</span>
+      </div>
+
+      <h3 style="font-size: var(--font-size-lg); margin-bottom: var(--space-4)">ボタン</h3>
+      <div class="component-row" style="margin-bottom: var(--space-6)">
+        <button class="btn">デフォルト</button>
+        <button class="btn active">アクティブ</button>
+      </div>
+
+      <h3 style="font-size: var(--font-size-lg); margin-bottom: var(--space-4)">スケルトンUI</h3>
+      <div class="skeleton-card" style="max-width: 400px">
+        <div class="skeleton skeleton-line w-75"></div>
+        <div class="skeleton skeleton-line w-50"></div>
+        <div class="skeleton skeleton-line w-30"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    function toggleDark() {
+      document.documentElement.classList.toggle('dark');
+      const btn = document.getElementById('theme-toggle');
+      const isDark = document.documentElement.classList.contains('dark');
+      btn.textContent = isDark ? 'ライトモード' : 'ダークモード';
+    }
+  </script>
+</body>
+</html>

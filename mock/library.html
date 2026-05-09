@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yaminabe — ライブラリ</title>
+  <link rel="stylesheet" href="styles/reset.css">
+  <link rel="stylesheet" href="styles/tokens.css">
+  <link rel="stylesheet" href="styles/feed-common.css">
+  <link rel="stylesheet" href="styles/library.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="header" style="padding: var(--space-2) var(--space-3)">
+    <div class="header-logo" style="font-size: var(--font-size-lg)">闇鍋</div>
+    <button class="hamburger" aria-label="メニュー"><span></span><span></span><span></span></button>
+  </header>
+
+  <!-- Filters -->
+  <div class="filter-bar">
+    <input class="filter-search" type="text" placeholder="タイトル・メモで検索..." id="search">
+    <div class="filter-row">
+      <span class="filter-label">種別:</span>
+      <span class="filter-chip on" data-action="all">全て</span>
+      <span class="filter-chip" data-action="click">クリック</span>
+      <span class="filter-chip" data-action="bookmark">ブックマーク</span>
+      <span class="filter-label" style="margin-left:var(--space-2)">カテゴリ:</span>
+      <span class="filter-chip on" data-cat="all">全て</span>
+      <span class="filter-chip" data-cat="テクノロジー">技術</span>
+      <span class="filter-chip" data-cat="サイエンス">科学</span>
+      <span class="filter-chip" data-cat="デザイン">設計</span>
+      <span class="filter-chip" data-cat="キャリア">仕事</span>
+      <span class="filter-chip" data-cat="ライフスタイル">生活</span>
+      <span class="filter-chip" data-cat="教養">教養</span>
+      <span class="filter-chip" data-cat="ビジネス">経済</span>
+    </div>
+  </div>
+
+  <!-- List -->
+  <main class="library-page">
+    <div class="filter-count" id="count"></div>
+    <ul class="library-list" id="list"></ul>
+  </main>
+
+  <!-- Memo Modal -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">メモ</span>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-article-title" id="modal-title"></div>
+        <div class="modal-article-meta" id="modal-meta"></div>
+        <textarea class="memo-textarea" id="memo-text" placeholder="メモを入力（最大1000文字）" maxlength="1000"
+          oninput="document.getElementById('char-count').textContent=this.value.length+'/1000'"></textarea>
+        <div class="memo-char-count" id="char-count">0/1000</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal" onclick="closeModal()">キャンセル</button>
+        <button class="btn-modal primary" onclick="saveMemo()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <button class="theme-toggle" onclick="toggleDark()">暗</button>
+
+  <script>
+    const ACTION_LABEL = { click: 'クリック', bookmark: 'ブクマ', skip: 'スキップ' };
+    let allItems = [];
+    let memos = {};
+    let currentFilter = { action: 'all', cat: 'all', query: '' };
+    let currentModalFeedId = null;
+
+    function formatDateTime(iso) {
+      const d = new Date(iso);
+      return `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+    }
+
+    function formatDateLabel(iso) {
+      const d = new Date(iso);
+      return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+    }
+
+    function formatTime(iso) {
+      const d = new Date(iso);
+      return `${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+    }
+
+    function renderList(items) {
+      document.getElementById('count').textContent = `${items.length}件`;
+      document.getElementById('list').innerHTML = items.flatMap((h, i) => {
+        const dateLabel = formatDateLabel(h.created_at);
+        const prevDate = i > 0 ? formatDateLabel(items[i-1].created_at) : '';
+        const hasMemo = !!memos[h.feed_id];
+        return [
+          dateLabel !== prevDate ? `<li class="library-date-header">${dateLabel}</li>` : '',
+          `<li class="library-item">
+            <span class="lib-action ${h.action}">${ACTION_LABEL[h.action]}</span>
+            <span class="lib-content">${h._title}</span>
+            <span class="lib-meta">${formatTime(h.created_at)}</span>
+            <button class="lib-memo-btn${hasMemo ? ' has-memo' : ''}"
+              onclick="event.stopPropagation();openModal(${h.feed_id},'${h._title.replace(/'/g,"\\'")}','${h._source} ${formatDateTime(h.created_at)}')">
+              ${hasMemo ? 'メモ有' : 'メモ'}
+            </button>
+          </li>`
+        ];
+      }).join('');
+    }
+
+    function applyFilters() {
+      let items = allItems;
+      if (currentFilter.action !== 'all') {
+        items = items.filter(h => h.action === currentFilter.action);
+      }
+      if (currentFilter.cat !== 'all') {
+        items = items.filter(h => h._category === currentFilter.cat);
+      }
+      if (currentFilter.query) {
+        const q = currentFilter.query.toLowerCase();
+        items = items.filter(h =>
+          h._title.toLowerCase().includes(q) ||
+          (memos[h.feed_id] || '').toLowerCase().includes(q)
+        );
+      }
+      renderList(items);
+    }
+
+    // Filter chip clicks (action)
+    document.querySelector('.filter-row').addEventListener('click', e => {
+      const chip = e.target.closest('.filter-chip');
+      if (!chip) return;
+
+      if (chip.dataset.action !== undefined) {
+        document.querySelectorAll('[data-action]').forEach(c => c.classList.remove('on'));
+        chip.classList.add('on');
+        currentFilter.action = chip.dataset.action;
+      }
+      if (chip.dataset.cat !== undefined) {
+        document.querySelectorAll('[data-cat]').forEach(c => c.classList.remove('on'));
+        chip.classList.add('on');
+        currentFilter.cat = chip.dataset.cat;
+      }
+      applyFilters();
+    });
+
+    // Search
+    document.getElementById('search').addEventListener('input', e => {
+      currentFilter.query = e.target.value;
+      applyFilters();
+    });
+
+    // Modal
+    function openModal(feedId, title, meta) {
+      currentModalFeedId = feedId;
+      document.getElementById('modal-title').textContent = title;
+      document.getElementById('modal-meta').textContent = meta;
+      const text = memos[feedId] || '';
+      document.getElementById('memo-text').value = text;
+      document.getElementById('char-count').textContent = text.length + '/1000';
+      document.getElementById('modal').classList.add('open');
+    }
+
+    function closeModal() {
+      document.getElementById('modal').classList.remove('open');
+      currentModalFeedId = null;
+    }
+
+    function saveMemo() {
+      const text = document.getElementById('memo-text').value.trim();
+      if (text) {
+        memos[currentModalFeedId] = text;
+      } else {
+        delete memos[currentModalFeedId];
+      }
+      closeModal();
+      applyFilters();
+    }
+
+    // Close modal on overlay click
+    document.getElementById('modal').addEventListener('click', e => {
+      if (e.target === document.getElementById('modal')) closeModal();
+    });
+
+    // Load data
+    fetch('data/history.json').then(r=>r.json()).then(history => {
+      fetch('data/feeds.json').then(r=>r.json()).then(feeds => {
+        fetch('data/bookmarks.json').then(r=>r.json()).then(bookmarks => {
+          const feedMap = Object.fromEntries(feeds.map(f=>[f.id,f]));
+          bookmarks.filter(b=>b.user_id===1 && b.memo).forEach(b => { memos[b.feed_id] = b.memo; });
+
+          allItems = history.filter(h=>h.user_id===1 && h.action!=='skip').map(h => {
+            const feed = feedMap[h.feed_id] || {};
+            return {
+              ...h,
+              _title: feed.title || '不明',
+              _source: feed.source || '',
+              _category: feed.category || ''
+            };
+          });
+
+          applyFilters();
+        });
+      });
+    });
+
+    function toggleDark() {
+      document.documentElement.classList.toggle('dark');
+      document.querySelector('.theme-toggle').textContent =
+        document.documentElement.classList.contains('dark') ? '明' : '暗';
+    }
+  </script>
+</body>
+</html>

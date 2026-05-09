@@ -1,0 +1,130 @@
+/* S-05 B案: 左右分割型 — 左にブランドメッセージ、右にフォーム */
+
+.auth-split {
+  display: flex;
+  min-height: calc(100dvh - 45px);
+}
+
+.auth-brand {
+  display: none;
+  flex: 1;
+  background: var(--color-bg-secondary);
+  padding: var(--space-8);
+  justify-content: center;
+  align-items: center;
+}
+
+@media (min-width: 768px) {
+  .auth-brand { display: flex; }
+}
+
+.brand-content {
+  max-width: 360px;
+}
+
+.brand-title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  margin-bottom: var(--space-3);
+}
+
+.brand-desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.7;
+  margin-bottom: var(--space-4);
+}
+
+.brand-features {
+  list-style: none;
+}
+
+.brand-features li {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  padding: var(--space-1) 0;
+}
+
+.brand-features li::before {
+  content: "✓ ";
+  color: var(--color-success);
+  font-weight: var(--font-weight-bold);
+}
+
+.auth-form-side {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+}
+
+.auth-form-inner {
+  width: 100%;
+  max-width: 360px;
+}
+
+.auth-form-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  margin-bottom: var(--space-6);
+}
+
+.form-group {
+  margin-bottom: var(--space-4);
+}
+
+.form-label {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  margin-bottom: var(--space-1);
+}
+
+.form-input {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-base);
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.form-input:focus { outline: none; border-color: var(--color-primary); }
+
+.btn-submit {
+  width: 100%;
+  padding: var(--space-3);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: #fff;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.btn-submit:hover { background: var(--color-primary-hover); }
+
+.auth-switch {
+  text-align: center;
+  margin-top: var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+}
+
+.auth-switch a {
+  color: var(--color-primary);
+  cursor: pointer;
+}
+
+.form-forgot {
+  text-align: right;
+  margin-top: var(--space-1);
+}
+
+.form-forgot a {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}

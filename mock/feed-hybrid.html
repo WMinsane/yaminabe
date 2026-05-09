@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yaminabe — BD混合: リスト+高密度</title>
+  <link rel="stylesheet" href="styles/reset.css">
+  <link rel="stylesheet" href="styles/tokens.css">
+  <link rel="stylesheet" href="styles/feed-common.css">
+  <link rel="stylesheet" href="styles/feed-hybrid.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header" style="padding: var(--space-2) var(--space-3)">
+    <div class="header-logo" style="font-size: var(--font-size-lg)">闇鍋</div>
+    <button class="hamburger" aria-label="メニュー">
+      <span></span><span></span><span></span>
+    </button>
+  </header>
+
+  <!-- Category chips -->
+  <nav class="feed-controls hybrid-controls">
+    <span class="chip active" data-cat="all">全て</span>
+    <span class="chip" data-cat="テクノロジー">技術</span>
+    <span class="chip" data-cat="サイエンス">科学</span>
+    <span class="chip" data-cat="デザイン">設計</span>
+    <span class="chip" data-cat="キャリア">仕事</span>
+    <span class="chip" data-cat="ライフスタイル">生活</span>
+    <span class="chip" data-cat="教養">教養</span>
+    <span class="chip" data-cat="ビジネス">経済</span>
+  </nav>
+
+  <!-- Feed -->
+  <main id="feed"></main>
+
+  <button class="theme-toggle" onclick="toggleDark()">暗</button>
+
+  <script>
+    let allFeeds = [];
+    let currentView = 'grouped';
+
+    function formatDate(iso) {
+      const d = new Date(iso);
+      return `${d.getMonth()+1}/${d.getDate()}`;
+    }
+
+    function shortenSource(s) {
+      return s.replace('はてなブックマーク', 'はてブ').replace('個人ブログ', 'blog');
+    }
+
+    function renderItem(item, idx) {
+      const newBadge = item.is_new ? '<span class="hybrid-new">New</span>' : '';
+      const tag = item.tags[0] ? ` <span class="hybrid-tag">${item.tags[0]}</span>` : '';
+      return `
+        <li class="hybrid-item">
+          <span class="hybrid-num">${idx + 1}</span>
+          <div class="hybrid-content">
+            <div class="hybrid-title-line">
+              ${newBadge}<span class="hybrid-title">${item.title}</span>${tag}
+            </div>
+            <div class="hybrid-summary">${item.summary}</div>
+          </div>
+          <div class="hybrid-meta-right">
+            <span class="hybrid-users">${item.bookmark_count}</span>
+            <span class="hybrid-users-label">users</span>
+            <span class="hybrid-date">${shortenSource(item.source)} ${formatDate(item.published_at)}</span>
+          </div>
+        </li>
+      `;
+    }
+
+    function renderGrouped(feeds) {
+      const groups = {};
+      feeds.forEach(f => {
+        if (!groups[f.category]) groups[f.category] = [];
+        groups[f.category].push(f);
+      });
+
+      let html = '<div class="hybrid-feed">';
+      for (const [cat, items] of Object.entries(groups)) {
+        html += `
+          <div class="hybrid-card">
+            <div class="hybrid-card-header">
+              <span>${cat}</span>
+              <span class="count">${items.length}件</span>
+            </div>
+            <ul class="hybrid-list">
+              ${items.map((item, i) => renderItem(item, i)).join('')}
+            </ul>
+          </div>
+        `;
+      }
+      html += '</div>';
+      return html;
+    }
+
+    function renderFlat(feeds) {
+      let html = '<div class="hybrid-feed"><div class="hybrid-card" style="grid-column: 1 / -1">';
+      html += `<div class="hybrid-card-header"><span>全て</span><span class="count">${feeds.length}件</span></div>`;
+      html += '<ul class="hybrid-list">';
+      html += feeds.map((item, i) => renderItem(item, i)).join('');
+      html += '</ul></div></div>';
+      return html;
+    }
+
+    function render(feeds, view) {
+      document.getElementById('feed').innerHTML =
+        view === 'grouped' ? renderGrouped(feeds) : renderFlat(feeds);
+    }
+
+    document.querySelector('.hybrid-controls').addEventListener('click', e => {
+      const chip = e.target.closest('.chip');
+      if (!chip) return;
+      document.querySelectorAll('.hybrid-controls .chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      const cat = chip.dataset.cat;
+      if (cat === 'all') {
+        currentView = 'grouped';
+        render(allFeeds, currentView);
+      } else {
+        currentView = 'flat';
+        render(allFeeds.filter(f => f.category === cat), currentView);
+      }
+    });
+
+    fetch('data/feeds.json')
+      .then(r => r.json())
+      .then(feeds => {
+        allFeeds = feeds;
+        render(feeds, currentView);
+      });
+
+    function toggleDark() {
+      document.documentElement.classList.toggle('dark');
+      const btn = document.querySelector('.theme-toggle');
+      btn.textContent = document.documentElement.classList.contains('dark') ? '明' : '暗';
+    }
+  </script>
+</body>
+</html>

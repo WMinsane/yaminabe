@@ -1,0 +1,68 @@
+[
+  {
+    "id": 1,
+    "name": "テクノロジー",
+    "parent_id": null,
+    "children": [
+      {"id": 11, "name": "Web開発"},
+      {"id": 12, "name": "インフラ・DevOps"},
+      {"id": 13, "name": "AI・機械学習"},
+      {"id": 14, "name": "セキュリティ"},
+      {"id": 15, "name": "モバイル開発"}
+    ]
+  },
+  {
+    "id": 2,
+    "name": "ビジネス・経済",
+    "parent_id": null,
+    "children": [
+      {"id": 21, "name": "経営・戦略"},
+      {"id": 22, "name": "マーケティング"},
+      {"id": 23, "name": "投資・金融"},
+      {"id": 24, "name": "スタートアップ"}
+    ]
+  },
+  {
+    "id": 3,
+    "name": "デザイン",
+    "parent_id": null,
+    "children": [
+      {"id": 31, "name": "UIデザイン"},
+      {"id": 32, "name": "UXリサーチ"},
+      {"id": 33, "name": "グラフィック"}
+    ]
+  },
+  {
+    "id": 4,
+    "name": "キャリア",
+    "parent_id": null,
+    "children": [
+      {"id": 41, "name": "転職・就活"},
+      {"id": 42, "name": "マネジメント"},
+      {"id": 43, "name": "副業・個人開発"},
+      {"id": 44, "name": "働き方"}
+    ]
+  },
+  {
+    "id": 5,
+    "name": "教養・ライフ",
+    "parent_id": null,
+    "children": [
+      {"id": 51, "name": "書評・読書"},
+      {"id": 52, "name": "歴史・哲学"},
+      {"id": 53, "name": "語学"},
+      {"id": 54, "name": "生産性・習慣"},
+      {"id": 55, "name": "マネー"}
+    ]
+  },
+  {
+    "id": 6,
+    "name": "サイエンス",
+    "parent_id": null,
+    "children": [
+      {"id": 61, "name": "物理・数学"},
+      {"id": 62, "name": "生物・医学"},
+      {"id": 63, "name": "データサイエンス"}
+    ]
+  }
+]

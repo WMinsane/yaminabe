@@ -53,7 +53,9 @@ yaminabe/
 │   └── mobile/              ← React Native / Expo（将来対応）
 ├── batch/                   ← Python 日次バッチ
 ├── packages/
+│   ├── db/                  ← Prisma（スキーマ管理・マイグレーション）
 │   └── shared/              ← 共有ロジック（型定義・ユーティリティ）
+├── docker-compose.yml       ← 開発用PostgreSQLコンテナ
 ├── turbo.json
 └── package.json
 ```
@@ -64,7 +66,7 @@ yaminabe/
 
 | レイヤー | 技術 | バージョン |
 |---------|------|-----------|
-| Web フロントエンド | Next.js (React) | 15.5 (React 19.2) |
+| Web フロントエンド | Next.js (React) | 16.2 (React 19) |
 | モバイル フロントエンド | React Native (Expo)（将来対応） | — |
 | サーバーサイド | Server Components / Server Actions | — |
 | 日次バッチ | Python（収集・タグ付与・weight更新） | — |
@@ -76,7 +78,7 @@ yaminabe/
 | バリデーション | Zod | 4.3 |
 | 状態管理 | useState / useContext / Zustand | 5.0 |
 | CSS | Tailwind CSS | 4.2 |
-| タグ自動付与（LLM） | Gemini 2.0 Flash-Lite（Google AI） | — |
+| タグ自動付与（LLM） | Gemini 2.5 Flash-Lite（Google AI） | — |
 | monorepo管理 | Turborepo | 2.8 |
 
 ## 認証方式
@@ -85,10 +87,11 @@ yaminabe/
 
 | 選定項目 | 採用 | 理由 |
 |---------|------|------|
-| 認証方式 | Credentials Provider（Email + Password） | MVP最小構成。OAuth（Google, Apple等）は将来対応 |
+| 認証方式 | Email + Password（カスタム実装） | MVP最小構成。NextAuth v5はCredentials+DBセッション非対応のため自前実装。スキーマはNextAuth互換 |
 | セッション管理 | DBセッション（sessionテーブル） | サーバー側でセッション無効化が可能。JWTではrevoke不可 |
-| セッションID保持 | Cookie（セッションIDのみ） | トークン漏洩リスク最小化 |
-| メール送信 | Resend | パスワードリセット専用。低コスト・API簡潔 |
+| セッションID保持 | Cookie（セッショントークンのみ） | `crypto.randomUUID()`で生成。HttpOnly/Secure/SameSite=Lax |
+| ルート保護 | proxy.ts（Next.js 16 proxy convention） | Cookie有無でリダイレクト制御。middleware.tsはNext.js 16で非推奨 |
+| メール送信 | Resend | パスワードリセット専用。低コスト・API簡潔。開発環境はコンソールログ |
 
 ### 暗号・ハッシュ方式
 
@@ -96,7 +99,7 @@ yaminabe/
 |------|------|------|------|
 | パスワード保存 | ハッシュ | bcrypt（ソルト + ストレッチング10ラウンド） | SHA-256は高速すぎてブルートフォースに弱いため不採用 |
 | HTTPS通信 | 暗号化 | TLS 1.3（AES-256-GCM） | Vercel / Supabase が自動適用。アプリ層で直接扱わない |
-| セッションID生成 | 乱数生成 | crypto.randomUUID()（UUIDv4, 122bit） | NextAuth標準 |
+| セッションID生成 | 乱数生成 | crypto.randomUUID()（UUIDv4, 122bit） | sessionテーブルに保存、Cookieで保持 |
 | パスワードリセットトークン | 乱数生成 | crypto.randomBytes(32) | 有効期限10分。verification_tokenテーブル管理 |
 
 ## タグ自動付与方式
@@ -106,7 +109,7 @@ yaminabe/
 | 選定項目 | 採用 | 理由 |
 |---------|------|------|
 | 方式 | LLM APIによるテキスト分類 | 機械学習の内部実装不要。未知ワードのタグ抽出が可能 |
-| 初期実装 | Gemini 2.0 Flash-Lite | 低コスト（MVP規模なら無料枠内）。日本語対応。バッチAPI対応 |
+| 初期実装 | Gemini 2.5 Flash-Lite | 低コスト（MVP規模なら無料枠内）。日本語対応。バッチAPI対応 |
 | 切替候補 | Claude Haiku 4.5 / GPT-4o-mini | サービス停止時に環境変数のみで切替可能 |
 
 ### LLMアダプタパターン
@@ -177,14 +180,14 @@ MVP時点ではSLA目標値を設定しない。Vercel + Supabase のマネー�
 
 | 環境 | Web | バッチ | DB | 備考 |
 |------|-----|--------|-----|------|
-| 開発 | localhost (next dev) | ローカル実行 | Supabase (dev project) | DevContainer内 |
-| 本番 | Vercel | 未定（GitHub Actions / Railway等） | Supabase (prod project) | Edge Functions未使用 |
+| 開発 | localhost (next dev) | ローカル実行 | Docker PostgreSQL 16 (ローカル) | docker compose up -d で起動 |
+| 本番 | Vercel | GitHub Actions (cron) | Supabase (prod project) | Edge Functions未使用 |
 
 ### 環境分離
 
 ```
-開発環境: .env.local → Supabase dev project
+開発環境: .env.local → Docker PostgreSQL (localhost:5432)
 本番環境: Vercel Environment Variables → Supabase prod project
 ```
 
-※ 環境変数管理の詳細は `.docs/secure-dev-rules.md` を参照
+※ 環境変数管理・デプロイ手順の詳細は `.docs/deploy-strategy.md` を参照

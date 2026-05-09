@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yaminabe — エラー</title>
+  <link rel="stylesheet" href="styles/reset.css">
+  <link rel="stylesheet" href="styles/tokens.css">
+  <link rel="stylesheet" href="styles/feed-common.css">
+  <link rel="stylesheet" href="styles/error.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="header" style="padding: var(--space-2) var(--space-3)">
+    <div class="header-logo" style="font-size: var(--font-size-lg)">闇鍋</div>
+    <button class="hamburger" aria-label="メニュー">
+      <span></span><span></span><span></span>
+    </button>
+  </header>
+
+  <main class="error-page">
+    <div class="error-content" id="error-content">
+      <div class="error-code">404</div>
+      <h1 class="error-title">ページが見つかりません</h1>
+      <p class="error-message">お探しのページは存在しないか、移動した可能性があります。</p>
+      <div class="error-actions">
+        <a href="feed-hybrid.html" class="btn-primary">ホームに戻る</a>
+      </div>
+    </div>
+  </main>
+
+  <!-- Demo: error type switcher -->
+  <div class="error-switcher">
+    <button class="active" onclick="showError('404')">404</button>
+    <button onclick="showError('500')">500</button>
+    <button onclick="showError('503')">503</button>
+  </div>
+
+  <button class="theme-toggle" onclick="toggleDark()">暗</button>
+
+  <script>
+    const errors = {
+      '404': {
+        code: '404',
+        title: 'ページが見つかりません',
+        message: 'お探しのページは存在しないか、移動した可能性があります。',
+        actions: '<a href="feed-hybrid.html" class="btn-primary">ホームに戻る</a>'
+      },
+      '500': {
+        code: '500',
+        title: 'サーバーエラー',
+        message: '問題が発生しました。しばらくしてからお試しください。',
+        actions: '<button class="btn-primary" onclick="location.reload()">リトライ</button><a href="feed-hybrid.html" class="btn-ghost">ホームに戻る</a>'
+      },
+      '503': {
+        code: '503',
+        title: 'メンテナンス中',
+        message: '現在メンテナンス中です。復旧までしばらくお待ちください。',
+        actions: ''
+      }
+    };
+
+    function showError(type) {
+      const e = errors[type];
+      document.getElementById('error-content').innerHTML = `
+        <div class="error-code">${e.code}</div>
+        <h1 class="error-title">${e.title}</h1>
+        <p class="error-message">${e.message}</p>
+        <div class="error-actions">${e.actions}</div>
+      `;
+      document.querySelectorAll('.error-switcher button').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+    }
+
+    function toggleDark() {
+      document.documentElement.classList.toggle('dark');
+      document.querySelector('.theme-toggle').textContent =
+        document.documentElement.classList.contains('dark') ? '明' : '暗';
+    }
+  </script>
+</body>
+</html>

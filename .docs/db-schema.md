@@ -146,6 +146,20 @@
 | updated_by | VARCHAR(25) | FK → user, NULL | 更新者 |
 | deleted_at | TIMESTAMPTZ | NULL | 論理削除日時 |
 
+### domain_banlist
+
+コンテンツ収集時にブロックするドメインの一覧。register.pyで収集時にURLのhost部と完全一致でフィルタする。
+
+| カラム | 型 | 制約 | 説明 |
+|--------|-----|------|------|
+| id | SERIAL | PK | |
+| domain | VARCHAR(255) | UNIQUE, NOT NULL | ブロック対象ドメイン（完全一致） |
+| reason | VARCHAR(500) | NULL | ブロック理由 |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | 作成日時 |
+| updated_at | TIMESTAMPTZ | NOT NULL | 更新日時 |
+| updated_by | VARCHAR(25) | FK → user, NULL | 更新者 |
+| deleted_at | TIMESTAMPTZ | NULL | 論理削除日時 |
+
 ### content
 
 収集した個別記事。feed_sourceから定時バッチで取得し蓄積。
@@ -324,6 +338,7 @@
 | code_master | (category, code_value, valid_from) | UNIQUE | コード一意制約 |
 | content | url | UNIQUE | 重複排除 |
 | feed_source | url | UNIQUE | ソース重複排除 |
+| domain_banlist | domain | UNIQUE | ブロックドメイン一意制約 |
 | category | slug | UNIQUE | カテゴリ検索 |
 | category | parent_id | INDEX | 子カテゴリ取得 |
 | content | category_id | INDEX | カテゴリ別記事取得 |

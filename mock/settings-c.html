@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yaminabe — 設定 C: カード分割型</title>
+  <link rel="stylesheet" href="styles/reset.css">
+  <link rel="stylesheet" href="styles/tokens.css">
+  <link rel="stylesheet" href="styles/feed-common.css">
+  <link rel="stylesheet" href="styles/settings-c.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="header" style="padding: var(--space-2) var(--space-3)">
+    <div class="header-logo" style="font-size: var(--font-size-lg)">闇鍋</div>
+    <button class="hamburger" aria-label="メニュー"><span></span><span></span><span></span></button>
+  </header>
+
+  <main class="settings-cards">
+    <div class="setting-card">
+      <div class="setting-card-header">配信モード</div>
+      <div class="setting-card-body">
+        <div class="mode-scroll">
+          <div class="mode-option selected" onclick="selectMode(this)">
+            <div class="mode-icon">⚖</div>
+            <div class="mode-name">バランス</div>
+          </div>
+          <div class="mode-option" onclick="selectMode(this)">
+            <div class="mode-icon">🔍</div>
+            <div class="mode-name">発見</div>
+          </div>
+          <div class="mode-option" onclick="selectMode(this)">
+            <div class="mode-icon">🎯</div>
+            <div class="mode-name">集中</div>
+          </div>
+          <div class="mode-option" onclick="selectMode(this)">
+            <div class="mode-icon">📈</div>
+            <div class="mode-name">トレンド</div>
+          </div>
+          <div class="mode-option" onclick="selectMode(this)">
+            <div class="mode-icon">🎲</div>
+            <div class="mode-name">ランダム</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="setting-card cat-card">
+      <div class="setting-card-header">興味カテゴリ</div>
+      <div class="setting-card-body">
+        <div id="cat-tree"></div>
+      </div>
+    </div>
+
+    <div class="setting-card">
+      <div class="setting-card-header">おまかせレベル</div>
+      <div class="setting-card-body">
+        <div class="temp-visual">
+          <div class="temp-label">どれくらい冒険する？</div>
+          <div class="temp-value" id="temp-c">バランス</div>
+        </div>
+        <input type="range" class="temp-slider" min="1" max="5" step="1" value="3"
+          oninput="updateOmakaseLevel(this.value)">
+        <div class="omakase-steps">
+          <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
+        </div>
+        <div class="temp-range"><span>パーソナライズ重視</span><span>フルランダム</span></div>
+      </div>
+    </div>
+
+    <div class="setting-card">
+      <div class="setting-card-header">アカウント</div>
+      <div class="setting-card-body">
+        <div class="account-rows">
+          <div class="account-r"><span class="account-r-label">メール</span><span>taro@example.com</span></div>
+          <div class="account-r"><span class="account-r-label">プラン</span><span>有料</span></div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-save-c">設定を保存</button>
+  </main>
+
+  <button class="theme-toggle" onclick="toggleDark()">暗</button>
+  <script>
+    // User's selected categories (demo: テクノロジー全体, デザイン>UIデザイン, キャリア全体)
+    const selected = new Set([1, 11, 12, 13, 14, 15, 31, 4, 41, 42, 43, 44]);
+
+    const omakaseLevels = {
+      1: 'パーソナライズ重視',
+      2: 'やや固定',
+      3: 'バランス',
+      4: 'やや冒険',
+      5: 'フルランダム'
+    };
+    function updateOmakaseLevel(val) {
+      document.getElementById('temp-c').textContent = omakaseLevels[val];
+    }
+
+    function isAllChildrenSelected(cat) {
+      return cat.children.every(c => selected.has(c.id));
+    }
+
+    function toggleParent(parentId, children) {
+      const allOn = children.every(c => selected.has(c.id));
+      if (allOn) {
+        children.forEach(c => selected.delete(c.id));
+        selected.delete(parentId);
+      } else {
+        children.forEach(c => selected.add(c.id));
+        selected.add(parentId);
+      }
+      renderCatTree(window._categories);
+    }
+
+    function toggleChild(childId, parentId, siblings) {
+      if (selected.has(childId)) {
+        selected.delete(childId);
+        selected.delete(parentId);
+      } else {
+        selected.add(childId);
+        if (siblings.every(c => selected.has(c.id))) {
+          selected.add(parentId);
+        }
+      }
+      renderCatTree(window._categories);
+    }
+
+    function toggleExpand(el) {
+      el.closest('.cat-parent').classList.toggle('expanded');
+    }
+
+    function renderCatTree(categories) {
+      document.getElementById('cat-tree').innerHTML = categories.map(cat => {
+        const allOn = isAllChildrenSelected(cat);
+        const someOn = !allOn && cat.children.some(c => selected.has(c.id));
+        return `
+          <div class="cat-parent${allOn || someOn ? ' expanded' : ''}">
+            <div class="cat-parent-row">
+              <span class="cat-expand" onclick="toggleExpand(this)">${cat.children.length > 0 ? '▶' : ''}</span>
+              <span class="cat-check-box ${allOn ? 'on' : someOn ? 'partial' : ''}"
+                onclick="toggleParent(${cat.id}, ${JSON.stringify(cat.children).replace(/"/g,'&quot;')})">
+                ${allOn ? '✓' : someOn ? '−' : ''}
+              </span>
+              <span class="cat-parent-name" onclick="toggleExpand(this)">${cat.name}</span>
+              <span class="cat-child-count">${cat.children.filter(c=>selected.has(c.id)).length}/${cat.children.length}</span>
+            </div>
+            <div class="cat-children">
+              ${cat.children.map(c => `
+                <div class="cat-child-row" onclick="toggleChild(${c.id},${cat.id},${JSON.stringify(cat.children).replace(/"/g,'&quot;')})">
+                  <span class="cat-check-box ${selected.has(c.id) ? 'on' : ''}">${selected.has(c.id) ? '✓' : ''}</span>
+                  <span>${c.name}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    fetch('data/categories.json').then(r=>r.json()).then(cats => {
+      window._categories = cats;
+      renderCatTree(cats);
+    });
+
+    function selectMode(el) {
+      document.querySelectorAll('.mode-option').forEach(m => m.classList.remove('selected'));
+      el.classList.add('selected');
+    }
+    function toggleDark() {
+      document.documentElement.classList.toggle('dark');
+      document.querySelector('.theme-toggle').textContent =
+        document.documentElement.classList.contains('dark') ? '明' : '暗';
+    }
+  </script>
+</body>
+</html>

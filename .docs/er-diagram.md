@@ -118,6 +118,12 @@ erDiagram
         TIMESTAMPTZ last_fetched_at
     }
 
+    domain_banlist {
+        SERIAL id PK
+        VARCHAR(255) domain UK
+        VARCHAR(500) reason
+    }
+
     content {
         SERIAL id PK
         VARCHAR(2000) url UK

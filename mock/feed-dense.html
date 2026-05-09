@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yaminabe — D案: 高密度型</title>
+  <link rel="stylesheet" href="styles/reset.css">
+  <link rel="stylesheet" href="styles/tokens.css">
+  <link rel="stylesheet" href="styles/feed-common.css">
+  <link rel="stylesheet" href="styles/feed-dense.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header" style="padding: var(--space-2) var(--space-3)">
+    <div class="header-logo" style="font-size: var(--font-size-lg)">闇鍋</div>
+    <button class="hamburger" aria-label="メニュー">
+      <span></span><span></span><span></span>
+    </button>
+  </header>
+
+  <!-- Category chips (compact) -->
+  <nav class="feed-controls dense-controls">
+    <span class="chip active" data-cat="all">全て</span>
+    <span class="chip" data-cat="テクノロジー">技術</span>
+    <span class="chip" data-cat="サイエンス">科学</span>
+    <span class="chip" data-cat="デザイン">設計</span>
+    <span class="chip" data-cat="キャリア">仕事</span>
+    <span class="chip" data-cat="ライフスタイル">生活</span>
+    <span class="chip" data-cat="教養">教養</span>
+    <span class="chip" data-cat="ビジネス">経済</span>
+  </nav>
+
+  <!-- Feed -->
+  <main id="feed"></main>
+
+  <button class="theme-toggle" onclick="toggleDark()">暗</button>
+
+  <script>
+    let allFeeds = [];
+    let currentView = 'grouped'; // 'grouped' or 'flat'
+
+    function formatDate(iso) {
+      const d = new Date(iso);
+      return `${d.getMonth()+1}/${d.getDate()}`;
+    }
+
+    function shortenSource(s) {
+      return s.replace('はてなブックマーク', 'はてブ').replace('個人ブログ', 'blog');
+    }
+
+    function renderItem(item, idx) {
+      const newBadge = item.is_new ? '<span class="dense-new">New</span>' : '';
+      const tag = item.tags[0] ? `<span class="dense-tag">${item.tags[0]}</span>` : '';
+      return `
+        <li class="dense-item">
+          <span class="dense-num">${idx + 1}</span>
+          <span class="dense-title-line">
+            ${newBadge}<span class="dense-title">${item.title}</span> ${tag}
+          </span>
+          <span class="dense-meta-right">
+            <span class="dense-source">${shortenSource(item.source)}</span>
+            <span class="dense-users">${item.bookmark_count}u</span>
+            <span>${formatDate(item.published_at)}</span>
+          </span>
+        </li>
+      `;
+    }
+
+    function renderGrouped(feeds) {
+      const groups = {};
+      feeds.forEach(f => {
+        if (!groups[f.category]) groups[f.category] = [];
+        groups[f.category].push(f);
+      });
+
+      let html = '<div class="dense-feed">';
+      for (const [cat, items] of Object.entries(groups)) {
+        html += `
+          <div class="dense-card">
+            <div class="dense-card-header">
+              <span>${cat}</span>
+              <span class="count">${items.length}件</span>
+            </div>
+            <ul class="dense-list">
+              ${items.map((item, i) => renderItem(item, i)).join('')}
+            </ul>
+          </div>
+        `;
+      }
+      html += '</div>';
+      return html;
+    }
+
+    function renderFlat(feeds) {
+      let html = '<div class="dense-feed"><div class="dense-card dense-flat" style="grid-column: 1 / -1">';
+      html += `<div class="dense-card-header"><span>全て</span><span class="count">${feeds.length}件</span></div>`;
+      html += '<ul class="dense-list">';
+      html += feeds.map((item, i) => renderItem(item, i)).join('');
+      html += '</ul></div></div>';
+      return html;
+    }
+
+    function render(feeds, view) {
+      const container = document.getElementById('feed');
+      container.innerHTML = view === 'grouped' ? renderGrouped(feeds) : renderFlat(feeds);
+    }
+
+    // Chip click
+    document.querySelector('.dense-controls').addEventListener('click', e => {
+      const chip = e.target.closest('.chip');
+      if (!chip) return;
+
+      document.querySelectorAll('.dense-controls .chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+
+      const cat = chip.dataset.cat;
+      if (cat === 'all') {
+        currentView = 'grouped';
+        render(allFeeds, currentView);
+      } else {
+        currentView = 'flat';
+        render(allFeeds.filter(f => f.category === cat), currentView);
+      }
+    });
+
+    fetch('data/feeds.json')
+      .then(r => {
+        if (!r.ok) throw new Error(r.status);
+        return r.json();
+      })
+      .then(feeds => {
+        allFeeds = feeds;
+        render(feeds, currentView);
+      })
+      .catch(err => {
+        document.getElementById('feed').innerHTML =
+          '<p style="padding:1rem;color:red">データ読み込みエラー: ' + err.message + '</p>';
+      });
+
+    function toggleDark() {
+      document.documentElement.classList.toggle('dark');
+      const btn = document.querySelector('.theme-toggle');
+      btn.textContent = document.documentElement.classList.contains('dark') ? '明' : '暗';
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+[
+  {"id": 1, "user_id": 1, "feed_id": 1, "action": "click", "created_at": "2026-03-27T09:15:00Z"},
+  {"id": 2, "user_id": 1, "feed_id": 2, "action": "skip", "created_at": "2026-03-27T09:16:00Z"},
+  {"id": 3, "user_id": 1, "feed_id": 3, "action": "click", "created_at": "2026-03-26T18:30:00Z"},
+  {"id": 4, "user_id": 1, "feed_id": 3, "action": "bookmark", "created_at": "2026-03-26T19:30:00Z"},
+  {"id": 5, "user_id": 1, "feed_id": 4, "action": "skip", "created_at": "2026-03-26T12:05:00Z"},
+  {"id": 6, "user_id": 1, "feed_id": 5, "action": "click", "created_at": "2026-03-26T10:30:00Z"},
+  {"id": 7, "user_id": 1, "feed_id": 5, "action": "bookmark", "created_at": "2026-03-26T11:00:00Z"},
+  {"id": 8, "user_id": 1, "feed_id": 6, "action": "click", "created_at": "2026-03-26T08:30:00Z"},
+  {"id": 9, "user_id": 1, "feed_id": 6, "action": "bookmark", "created_at": "2026-03-26T09:00:00Z"},
+  {"id": 10, "user_id": 1, "feed_id": 7, "action": "click", "created_at": "2026-03-25T20:30:00Z"},
+  {"id": 11, "user_id": 1, "feed_id": 8, "action": "skip", "created_at": "2026-03-25T15:05:00Z"},
+  {"id": 12, "user_id": 1, "feed_id": 9, "action": "click", "created_at": "2026-03-25T12:30:00Z"},
+  {"id": 13, "user_id": 1, "feed_id": 9, "action": "bookmark", "created_at": "2026-03-25T13:00:00Z"},
+  {"id": 14, "user_id": 1, "feed_id": 10, "action": "click", "created_at": "2026-03-25T09:30:00Z"},
+  {"id": 15, "user_id": 1, "feed_id": 12, "action": "click", "created_at": "2026-03-24T15:30:00Z"},
+  {"id": 16, "user_id": 1, "feed_id": 14, "action": "click", "created_at": "2026-03-24T09:30:00Z"},
+  {"id": 17, "user_id": 1, "feed_id": 14, "action": "bookmark", "created_at": "2026-03-24T10:00:00Z"},
+  {"id": 18, "user_id": 1, "feed_id": 15, "action": "click", "created_at": "2026-03-23T20:30:00Z"},
+  {"id": 19, "user_id": 1, "feed_id": 15, "action": "bookmark", "created_at": "2026-03-23T21:00:00Z"},
+  {"id": 20, "user_id": 1, "feed_id": 23, "action": "click", "created_at": "2026-03-21T12:30:00Z"}
+]

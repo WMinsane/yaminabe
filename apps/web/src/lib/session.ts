@@ -22,7 +22,6 @@ export async function getCurrentUser() {
     if (session) {
       await prisma.session.delete({ where: { id: session.id } });
     }
-    store.delete(COOKIE_NAME);
     return null;
   }
 

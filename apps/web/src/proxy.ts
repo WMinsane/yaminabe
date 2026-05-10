@@ -12,13 +12,12 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/auth", request.url));
   }
 
-  if (AUTH_ONLY_PATHS.some((p) => pathname === p) && token) {
-    return NextResponse.redirect(new URL("/", request.url));
-  }
+  // /authページの認証済みリダイレクトはpage.tsx側で行う
+  // proxy.tsではCookieの存在しか確認できず、DBセッション期限切れ時にループする
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/settings/:path*", "/library/:path*", "/auth"],
+  matcher: ["/settings/:path*", "/library/:path*"],
 };

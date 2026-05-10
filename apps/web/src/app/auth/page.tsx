@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/session";
 import { loginAction, signupAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +18,9 @@ export default async function AuthPage({
 }: {
   searchParams: Promise<{ error?: string; tab?: string; reset?: string }>;
 }) {
+  const user = await getCurrentUser();
+  if (user) redirect("/");
+
   const { error, tab, reset } = await searchParams;
   const isSignup = tab === "signup";
   const errorMessage = error ? ERROR_MESSAGES[error] ?? null : null;

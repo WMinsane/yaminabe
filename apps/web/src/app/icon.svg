@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- 鍋本体 -->
+  <ellipse cx="32" cy="48" rx="24" ry="8" fill="#1a1a1a"/>
+  <rect x="8" y="32" width="48" height="16" rx="4" fill="#2d2d2d"/>
+  <ellipse cx="32" cy="32" rx="24" ry="8" fill="#3a3a3a"/>
+
+  <!-- 鍋の中身（毒々しい液体） -->
+  <ellipse cx="32" cy="33" rx="20" ry="6" fill="#4a0e4e" opacity="0.9"/>
+  <ellipse cx="28" cy="32" rx="4" ry="2" fill="#6b1d6e" opacity="0.7"/>
+
+  <!-- 泡（ぶくぶく） -->
+  <circle cx="24" cy="30" r="3" fill="#8b2e8b" opacity="0.8"/>
+  <circle cx="36" cy="28" r="2.5" fill="#7a1f7a" opacity="0.7"/>
+  <circle cx="30" cy="27" r="2" fill="#9b3e9b" opacity="0.6"/>
+  <circle cx="40" cy="31" r="1.8" fill="#8b2e8b" opacity="0.5"/>
+
+  <!-- 取っ手 -->
+  <rect x="2" y="36" width="8" height="4" rx="2" fill="#1a1a1a"/>
+  <rect x="54" y="36" width="8" height="4" rx="2" fill="#1a1a1a"/>
+
+  <!-- 焦げ煙（紫がかった不穏な煙） -->
+  <g opacity="0.6">
+    <path d="M20 26 Q18 18 22 12 Q20 8 18 2" stroke="#6b3a6b" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.7"/>
+    <path d="M32 24 Q34 16 30 10 Q32 5 30 -1" stroke="#7a4a7a" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.8"/>
+    <path d="M42 25 Q44 19 40 13 Q43 7 41 1" stroke="#5c2e5c" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.6"/>
+  </g>
+
+  <!-- 小さい煙パーティクル -->
+  <circle cx="19" cy="5" r="2" fill="#8b5e8b" opacity="0.3"/>
+  <circle cx="31" cy="2" r="2.5" fill="#7a4a7a" opacity="0.35"/>
+  <circle cx="42" cy="4" r="1.8" fill="#6b3a6b" opacity="0.25"/>
+</svg>

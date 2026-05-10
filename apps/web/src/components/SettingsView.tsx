@@ -255,14 +255,22 @@ export function SettingsView({
         </div>
       </div>
 
-      {/* Save button */}
-      <button
-        onClick={handleSave}
-        disabled={isPending}
-        className="md:col-span-2 p-3 border-none rounded-sm bg-primary text-white text-base font-medium cursor-pointer hover:bg-primary-hover disabled:opacity-50"
-      >
-        {isPending ? "保存中..." : saved ? "保存しました" : "設定を保存"}
-      </button>
+      {/* Save button + Feed link */}
+      <div className="md:col-span-2 flex flex-col gap-2">
+        <button
+          onClick={handleSave}
+          disabled={isPending}
+          className="w-full p-3 border-none rounded-sm bg-primary text-white text-base font-medium cursor-pointer hover:bg-primary-hover disabled:opacity-50"
+        >
+          {isPending ? "保存中..." : saved ? "保存しました" : "設定を保存"}
+        </button>
+        <a
+          href="/"
+          className="block w-full p-3 text-center border border-border rounded-sm text-sm font-medium text-text hover:bg-bg-secondary transition-colors"
+        >
+          フィードへ戻る
+        </a>
+      </div>
     </div>
   );
 }

@@ -16,7 +16,7 @@
 
 **共通カラム（アプリ独自テーブル全てに存在、ER図では省略）:** created_at, updated_at, updated_by, deleted_at
 
-**色分け（SVG上）:** NextAuth管理テーブル = オレンジ系背景 / アプリ独自テーブル = 紫系背景
+**色分け（SVG上）:** 認証関連テーブル = オレンジ系背景 / アプリ独自テーブル = 紫系背景
 
 ## Mermaid記法
 
@@ -45,7 +45,7 @@ erDiagram
 
     delivery_batch ||--o{ delivery_batch_item : "配信コンテンツ"
 
-    %% === NextAuth管理テーブル ===
+    %% === 認証関連テーブル ===
     user {
         VARCHAR(25) id PK
         VARCHAR(100) name
@@ -148,6 +148,7 @@ erDiagram
         SERIAL id PK
         VARCHAR(25) user_id FK
         VARCHAR(20) delivery_mode
+        SMALLINT omakase_level
         VARCHAR(10) display_mode
         VARCHAR(20) excerpt_style
     }

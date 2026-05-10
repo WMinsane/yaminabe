@@ -6,11 +6,11 @@
 sequenceDiagram
     actor U as ブラウザ
     participant SA as Server Action
-    participant NA as NextAuth
+    participant SS as session.ts
     participant DB as PostgreSQL
 
     U->>SA: メールアドレス + パスワード送信
-    SA->>SA: Zodバリデーション
+    SA->>SA: バリデーション
     SA->>DB: メールアドレス重複チェック
     alt 重複あり
         DB-->>SA: 既存ユーザーあり
@@ -20,9 +20,10 @@ sequenceDiagram
         SA->>DB: user INSERT（password_hash, plan='free'）
         DB-->>SA: ユーザー作成完了
         SA->>DB: user_setting INSERT（デフォルト設定）
-        SA->>NA: ログインセッション作成
-        NA->>DB: session INSERT
-        NA-->>SA: セッショントークン
+        SA->>SS: createSession(userId)
+        SS->>SS: crypto.randomUUID()でトークン生成
+        SS->>DB: session INSERT（token, userId, expires）
+        SS->>U: Cookie設定（yaminabe_session）
         SA-->>U: 登録完了 → フィード画面（S-01）へリダイレクト
     end
 ```
@@ -33,11 +34,11 @@ sequenceDiagram
 sequenceDiagram
     actor U as ブラウザ
     participant SA as Server Action
-    participant NA as NextAuth
+    participant SS as session.ts
     participant DB as PostgreSQL
 
     U->>SA: メールアドレス + パスワード送信
-    SA->>SA: Zodバリデーション
+    SA->>SA: バリデーション
     SA->>DB: メールアドレスでユーザー検索
     alt ユーザーなし
         DB-->>SA: 該当なし
@@ -48,9 +49,10 @@ sequenceDiagram
         alt 不一致
             SA-->>U: エラー（認証失敗）
         else 一致
-            SA->>NA: ログインセッション作成
-            NA->>DB: session INSERT
-            NA-->>SA: セッショントークン
+            SA->>SS: createSession(userId)
+            SS->>SS: crypto.randomUUID()でトークン生成
+            SS->>DB: session INSERT（token, userId, expires）
+            SS->>U: Cookie設定（yaminabe_session）
             SA-->>U: ログイン完了 → フィード画面（S-01）へリダイレクト
         end
     end
@@ -94,22 +96,23 @@ sequenceDiagram
 sequenceDiagram
     actor U as ブラウザ
     participant SC as Server Component
+    participant SS as session.ts
     participant DB as PostgreSQL
 
-    U->>SC: フィード画面アクセス（cookie: カテゴリ + 配信モード）
-    SC->>SC: セッション確認（NextAuth）
-
-    alt 有料ユーザー（認証済み）
-        SC->>DB: user_setting取得（配信モード）
-        SC->>DB: user_category取得（カテゴリ + weight）
-        SC->>DB: user_tag取得（タグ + weight）
-        SC->>DB: delivery_batch_item + content取得（条件合致）
-        SC->>SC: タグweight → カテゴリweight → 配信モードでスコアリング
+    U->>SC: フィード画面アクセス
+    SC->>SS: requireUser()
+    SS->>DB: sessionテーブル照合
+    alt 未認証
+        SS-->>U: /authへリダイレクト
+    else 認証済み
+        SC->>DB: user_category取得（選択カテゴリ）
+        SC->>DB: タグ親和度算出（user_action × content_tag）
+        SC->>DB: 配信モード取得（user_setting）
+        SC->>DB: content取得（カテゴリフィルタ + category + contentTags）
+        SC->>SC: スコアリング（タグ親和度 × 配信モード × 新着ブースト × ブックマーク数）
+        SC->>SC: 親カテゴリ別グループ化 → 各カテゴリ上位20件抽出
+        SC->>DB: user_action取得（クリック・ブックマーク・メモ）
         SC-->>U: フィード表示（スコア順）
-    else 無料ユーザー（未認証）
-        SC->>SC: cookieからカテゴリ + 配信モード取得
-        SC->>DB: delivery_batch_item + content取得（条件合致）
-        SC-->>U: フィード表示（weight適用なし）
     end
 ```
 
@@ -145,27 +148,37 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant PY as Pythonバッチ
+    participant CO as collect_all.py
+    participant RG as register.py
+    participant AT as autotag.py
     participant API as 外部API/RSS
+    participant GM as Gemini API
     participant DB as PostgreSQL
 
-    Note over PY,DB: コンテンツ収集 + 配信バッチ生成
-    loop 全カテゴリ × 全配信モード
-        PY->>API: RSS/APIクロール
-        API-->>PY: 記事データ
-        PY->>DB: content UPSERT（URL一意制約、先勝ち）
-        PY->>PY: タグ抽出（メタデータ優先、なければタイトル・要約から）
-        PY->>DB: tag INSERT（存在しなければ）
-        PY->>DB: content_tag INSERT
-        PY->>DB: delivery_batch INSERT
-        PY->>DB: delivery_batch_item INSERT
+    Note over CO,DB: Step 1: コンテンツ収集
+    loop 全ソース（はてブ・Qiita・Zenn・GIGAZINE）
+        CO->>API: RSS/APIクロール
+        API-->>CO: 記事データ
+    end
+    CO->>CO: output_all.json出力（URL重複排除済み）
+
+    Note over RG,DB: Step 2: DB登録
+    RG->>RG: output_all.json読み込み + URL重複排除
+    RG->>DB: domain_banlist取得
+    loop 記事ごと
+        RG->>RG: ルールベース分類（タグ→ソース→タイトル）
+        RG->>DB: content UPSERT（URL一意制約）
+        alt Qiitaタグあり
+            RG->>DB: tag UPSERT + content_tag INSERT
+        end
     end
 
-    Note over PY,DB: 有料ユーザー性向反映（IPW）
-    PY->>DB: 有料ユーザーのuser_action取得
-    loop 有料ユーザーごと
-        PY->>PY: IPW評価（配信weight逆数 × クリック率）
-        PY->>DB: user_category.weight UPDATE（範囲: 0.2〜0.5）
-        PY->>DB: user_tag.weight UPDATE（範囲: 0.2〜0.5）
+    Note over AT,DB: Step 3: カテゴリ自動付与（未分類のみ）
+    AT->>DB: category_id IS NULLのcontent取得
+    AT->>DB: カテゴリマスタ取得
+    loop バッチ（10件ずつ）
+        AT->>GM: 記事リスト + カテゴリ一覧で分類依頼
+        GM-->>AT: JSON（content_id → category_id）
+        AT->>DB: content.category_id UPDATE
     end
 ```

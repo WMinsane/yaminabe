@@ -19,25 +19,27 @@ flowchart TD
 
     subgraph BizLogic["ビジネスロジック層"]
         SV["Services\n（ドメインロジック）"]
-        NA["NextAuth v5（Auth.js）\n（認証・セッション管理）"]
+        AU["カスタムセッション認証\n（session.ts）"]
         RS["Resend\n（メール送信）"]
         ORM["Prisma\n（データアクセス）"]
     end
 
     subgraph ExtBatch["Python 日次バッチ"]
         B1["コンテンツ収集\n（はてブAPI・RSS）"]
-        B2["タグ自動付与\nIPW weight更新"]
-        LLM["LLM Adapter\n（タグ分類）"]
+        B1R["DB登録\n（UPSERT・ルールベース分類）"]
+        B2["カテゴリ自動付与\n（未分類記事のLLM分類）"]
+        LLM["Gemini API\n（カテゴリ分類）"]
     end
 
     RC -->|HTTP| SC & SA
     SC & SA --> SV
-    SV --> NA & ORM
-    NA --> ORM
+    SV --> ORM
     RS -.->|SMTP| Mail(("メール"))
     ORM -->|SQL| DB[("Supabase\nPostgreSQL")]
+    B1 --> B1R
+    B1R --> B2
     B2 --> LLM
-    LLM -->|API| LLMAPI(("LLM API\n(Gemini等)"))
+    LLM -->|API| LLMAPI(("Gemini API"))
     ExtBatch -->|SQL| DB
 ```
 
@@ -69,16 +71,16 @@ yaminabe/
 | Web フロントエンド | Next.js (React) | 16.2 (React 19) |
 | モバイル フロントエンド | React Native (Expo)（将来対応） | — |
 | サーバーサイド | Server Components / Server Actions | — |
-| 日次バッチ | Python（収集・タグ付与・weight更新） | — |
-| 認証 | NextAuth (Auth.js) + Credentials Provider | 5 |
-| セッション管理 | DBセッション（sessionテーブル） | — |
-| メール送信 | Resend（パスワードリセット） | 6.9 |
+| 日次バッチ | Python（収集・DB登録・カテゴリ自動付与） | 3.12 |
+| 認証 | カスタムセッション認証（NextAuth互換スキーマ） | — |
+| セッション管理 | DBセッション（sessionテーブル + crypto.randomUUID） | — |
+| メール送信 | Resend（パスワードリセット） | — |
 | データベース | Supabase PostgreSQL | — |
-| ORM | Prisma | 6 |
-| バリデーション | Zod | 4.3 |
-| 状態管理 | useState / useContext / Zustand | 5.0 |
+| ORM | Prisma | 6.9 |
+| バリデーション | Zod（MVP未導入） | — |
+| 状態管理 | useState / useContext（Zustand: MVP未導入） | — |
 | CSS | Tailwind CSS | 4.2 |
-| タグ自動付与（LLM） | Gemini 2.5 Flash-Lite（Google AI） | — |
+| カテゴリ自動付与（LLM） | Gemini 2.5 Flash-Lite（Google AI） | — |
 | monorepo管理 | Turborepo | 2.8 |
 
 ## 認証方式
@@ -87,9 +89,10 @@ yaminabe/
 
 | 選定項目 | 採用 | 理由 |
 |---------|------|------|
-| 認証方式 | Email + Password（カスタム実装） | MVP最小構成。NextAuth v5はCredentials+DBセッション非対応のため自前実装。スキーマはNextAuth互換 |
+| 認証方式 | Email + Password（カスタム実装） | MVP最小構成。NextAuth v5はCredentials+DBセッション非対応のため自前実装。スキーマはNextAuth互換（将来のNextAuth/OAuth移行に備える） |
 | セッション管理 | DBセッション（sessionテーブル） | サーバー側でセッション無効化が可能。JWTではrevoke不可 |
-| セッションID保持 | Cookie（セッショントークンのみ） | `crypto.randomUUID()`で生成。HttpOnly/Secure/SameSite=Lax |
+| セッションID保持 | Cookie（セッショントークンのみ） | `crypto.randomUUID()`で生成。HttpOnly/Secure/SameSite=Lax。Cookie名: `yaminabe_session` |
+| セッション有効期間 | 7日間 | `MAX_AGE = 60 * 60 * 24 * 7` |
 | ルート保護 | proxy.ts（Next.js 16 proxy convention） | Cookie有無でリダイレクト制御。middleware.tsはNext.js 16で非推奨 |
 | メール送信 | Resend | パスワードリセット専用。低コスト・API簡潔。開発環境はコンソールログ |
 
@@ -102,37 +105,36 @@ yaminabe/
 | セッションID生成 | 乱数生成 | crypto.randomUUID()（UUIDv4, 122bit） | sessionテーブルに保存、Cookieで保持 |
 | パスワードリセットトークン | 乱数生成 | crypto.randomBytes(32) | 有効期限10分。verification_tokenテーブル管理 |
 
-## タグ自動付与方式
+## カテゴリ自動付与方式
 
 ### 技術選定根拠
 
 | 選定項目 | 採用 | 理由 |
 |---------|------|------|
-| 方式 | LLM APIによるテキスト分類 | 機械学習の内部実装不要。未知ワードのタグ抽出が可能 |
-| 初期実装 | Gemini 2.5 Flash-Lite | 低コスト（MVP規模なら無料枠内）。日本語対応。バッチAPI対応 |
+| 方式 | ルールベース分類 + LLM APIによるカテゴリ分類 | 2段階で精度とコストを両立 |
+| ルールベース | register.py（タグ・ソース・タイトルから分類） | 明確なケースをLLM呼び出し前に処理 |
+| LLM分類 | Gemini 2.5 Flash-Lite（autotag.py） | 低コスト（MVP規模なら無料枠内）。日本語対応 |
 | 切替候補 | Claude Haiku 4.5 / GPT-4o-mini | サービス停止時に環境変数のみで切替可能 |
 
-### LLMアダプタパターン
-
-特定のLLMサービスへの依存を回避するため、共通インターフェースでプロバイダ差異を吸収する。
+### 分類フロー
 
 ```
-タグ付与ロジック
-    ↓
-LLMAdapter（共通インターフェース）
-    ├── GeminiAdapter（初期実装）
-    ├── ClaudeAdapter（切替候補）
-    └── OpenAIAdapter（切替候補）
+1. register.py: ルールベース分類（タグ → ソース名 → タイトルキーワード）
+   → 分類できた記事は category_id を設定してINSERT
+   → 分類できなかった記事は category_id = NULL でINSERT
+2. autotag.py: LLMカテゴリ分類（未分類記事のみ対象）
+   → category_id IS NULL の記事をバッチでGemini APIに送信
+   → 子カテゴリIDを返却 → content.category_id を更新
 ```
 
-- 環境変数 `LLM_PROVIDER` でアダプタを切替
-- 入出力スキーマ（JSON構造化出力）は全アダプタ共通
+### LLMアダプタパターン（将来対応）
+
+特定のLLMサービスへの依存を回避するため、共通インターフェースでプロバイダ差異を吸収する設計を予定。MVP段階ではGemini APIを直接呼び出し。
 
 ### タグ体系
 
-- 定義済みタグリストから優先的に選択させる
-- 該当するタグがない場合、LLMが新規タグを提案
-- 提案された新規タグは管理テーブルに蓄積し、定期的にタグリストへ昇格を検討
+- Qiita記事のタグはcontent_tagに自動登録（register.pyで処理）
+- その他ソースのタグ抽出は将来対応
 
 ### コスト見込み
 
@@ -149,8 +151,8 @@ LLMAdapter（共通インターフェース）
 |------|------|---------|
 | SQLインジェクション | パラメータバインド | Prisma ORM（生SQLを使用しない） |
 | XSS | 自動エスケープ | React DOM自動エスケープ + CSPヘッダー |
-| CSRF | トークン検証 | 全Server Actionsに対しDouble Submit Cookieパターンを適用 |
-| セッションハイジャック | Secure Cookie + HttpOnly | NextAuth設定。本番環境はHTTPS必須 |
+| CSRF | トークン検証 | MVP段階では未実装。Server ActionsはPOST + Same-Originで基本的に保護。将来Double Submit Cookie導入予定 |
+| セッションハイジャック | Secure Cookie + HttpOnly | session.tsでCookie設定（secure: true, httpOnly: true, sameSite: lax）。本番環境はHTTPS必須 |
 | パスワード漏洩 | ハッシュ保存 | bcrypt（平文保存しない） |
 | 認可バイパス | データアクセス制御 | Prisma where句でユーザーIDフィルタリング必須 |
 

@@ -1,6 +1,7 @@
 """
-カテゴリマスタ seed投入
+カテゴリマスタ seed投入（冪等）
 6親カテゴリ + 子カテゴリ
+slug基準でUPSERT — 何度実行しても安全
 """
 
 from __future__ import annotations
@@ -55,51 +56,55 @@ CATEGORIES = {
 
 def main():
     conn = psycopg2.connect(DB_URL)
+    inserted = 0
+    updated = 0
     try:
         with conn.cursor() as cur:
-            # 既存データ確認
-            cur.execute("SELECT COUNT(*) FROM category")
-            existing = cur.fetchone()[0]
-            if existing > 0:
-                print("category テーブルに既に {}件のデータがあります".format(existing))
-                print("スキップします（再投入する場合は TRUNCATE category CASCADE を実行してください）")
-                return
-
             for (parent_name, parent_slug), children in CATEGORIES.items():
                 cur.execute(
                     """
                     INSERT INTO category (name, slug, updated_at)
                     VALUES (%s, %s, NOW())
-                    RETURNING id
+                    ON CONFLICT (slug) DO UPDATE SET
+                        name = EXCLUDED.name,
+                        updated_at = NOW()
+                    RETURNING id, (xmax = 0) AS is_insert
                     """,
                     (parent_name, parent_slug),
                 )
-                parent_id = cur.fetchone()[0]
-                print("親: {} (id={})".format(parent_name, parent_id))
+                row = cur.fetchone()
+                parent_id = row[0]
+                if row[1]:
+                    inserted += 1
+                    print("追加 親: {} (id={})".format(parent_name, parent_id))
+                else:
+                    updated += 1
+                    print("既存 親: {} (id={})".format(parent_name, parent_id))
 
                 for child_name, child_slug in children:
                     cur.execute(
                         """
                         INSERT INTO category (parent_id, name, slug, updated_at)
                         VALUES (%s, %s, %s, NOW())
-                        RETURNING id
+                        ON CONFLICT (slug) DO UPDATE SET
+                            name = EXCLUDED.name,
+                            parent_id = EXCLUDED.parent_id,
+                            updated_at = NOW()
+                        RETURNING id, (xmax = 0) AS is_insert
                         """,
                         (parent_id, child_name, child_slug),
                     )
-                    child_id = cur.fetchone()[0]
-                    print("  子: {} (id={})".format(child_name, child_id))
+                    row = cur.fetchone()
+                    if row[1]:
+                        inserted += 1
+                        print("  追加 子: {} (id={})".format(child_name, row[0]))
+                    else:
+                        updated += 1
+                        print("  既存 子: {} (id={})".format(child_name, row[0]))
 
         conn.commit()
-
-        with conn.cursor() as cur:
-            cur.execute("SELECT COUNT(*) FROM category WHERE parent_id IS NULL")
-            parents = cur.fetchone()[0]
-            cur.execute("SELECT COUNT(*) FROM category WHERE parent_id IS NOT NULL")
-            children = cur.fetchone()[0]
-        print("\n=== 投入完了 ===")
-        print("親カテゴリ: {}件".format(parents))
-        print("子カテゴリ: {}件".format(children))
-        print("合計: {}件".format(parents + children))
+        print("\n=== 完了 ===")
+        print("追加: {}件 / 更新: {}件".format(inserted, updated))
     finally:
         conn.close()
 

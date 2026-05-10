@@ -4,10 +4,10 @@
 
 - Supabase PostgreSQL
 - ORM: Prisma（`@map` / `@@map` でsnake_case ↔ camelCase変換）
-- 認証: NextAuth（Auth.js）+ Prisma Adapter
-- NextAuth管理テーブルのidはVARCHAR(25)/cuid（NextAuth要件）
+- 認証: カスタムセッション認証（NextAuth互換スキーマを維持し、将来のOAuth対応に備える）
+- 認証関連テーブル（user, account, session, verification_token）のidはVARCHAR(25)/cuid
 - アプリ独自テーブルのidはSERIAL（自動採番）。ただし中間テーブルは複合主キー
-- NextAuth管理テーブルを参照するFKはVARCHAR(25)
+- 認証関連テーブルを参照するFKはVARCHAR(25)
 - テーブル名はsnake_case（Prismaモデル名はPascalCase、`@@map`で変換）
 - アプリ独自テーブルには共通カラム（created_at, updated_at, updated_by, deleted_at）を付与
   - created_at: Prisma `@default(now())`
@@ -19,9 +19,9 @@
 
 ## テーブル定義
 
-### user（NextAuth管理）
+### user（認証関連）
 
-ユーザーアカウント。NextAuthが自動管理し、アプリ固有のフィールド（plan）を追加。
+ユーザーアカウント。カスタム認証で管理。NextAuth互換スキーマを維持。
 
 | カラム | 型 | 制約 | 説明 |
 |--------|-----|------|------|
@@ -35,9 +35,9 @@
 | created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | 作成日時 |
 | updated_at | TIMESTAMPTZ | NOT NULL | 更新日時 |
 
-### account（NextAuth管理）
+### account（認証関連）
 
-外部認証プロバイダとの紐付け。OAuthログイン時にNextAuthが自動作成。
+外部認証プロバイダとの紐付け。OAuth対応時に使用予定（MVP段階では未使用）。
 
 | カラム | 型 | 制約 | 説明 |
 |--------|-----|------|------|
@@ -55,9 +55,9 @@
 
 **UNIQUE**: (provider, provider_account_id)
 
-### session（NextAuth管理）
+### session（認証関連）
 
-ログインセッション。Cookieのトークンと照合してログイン状態を判定。
+ログインセッション。Cookie（yaminabe_session）のトークンと照合してログイン状態を判定。session.tsで管理。
 
 | カラム | 型 | 制約 | 説明 |
 |--------|-----|------|------|
@@ -66,9 +66,9 @@
 | session_token | VARCHAR(255) | UNIQUE, NOT NULL | セッショントークン |
 | expires | TIMESTAMPTZ | NOT NULL | 有効期限 |
 
-### verification_token（NextAuth管理）
+### verification_token（認証関連）
 
-メール認証・パスワードリセット用の一時トークン。
+パスワードリセット用の一時トークン。有効期限10分。
 
 | カラム | 型 | 制約 | 説明 |
 |--------|-----|------|------|
@@ -170,7 +170,7 @@
 | url | VARCHAR(2000) | UNIQUE, NOT NULL | 記事URL（重複排除キー） |
 | title | VARCHAR(500) | NOT NULL | 記事タイトル |
 | source | VARCHAR(100) | NOT NULL | 配信元識別子 |
-| category_id | INTEGER | FK → category, NOT NULL | 収集時に確定したカテゴリ |
+| category_id | INTEGER | FK → category, NULL | カテゴリ（ルールベース/LLMで分類。未分類時はNULL） |
 | feed_source_id | INTEGER | FK → feed_source, NULL | 取得元 |
 | author | VARCHAR(200) | NULL | 記事の著者名 |
 | summary | TEXT | NULL | 記事の要約 |
@@ -209,7 +209,8 @@
 | id | SERIAL | PK | |
 | user_id | VARCHAR(25) | FK → user, UNIQUE, NOT NULL | |
 | delivery_mode | VARCHAR(20) | NOT NULL, DEFAULT 'omakase' | 配信モード（trend / deep / casual / discovery / omakase） |
-| display_mode | VARCHAR(10) | NOT NULL, DEFAULT 'light' | 表示モード（light / dark） |
+| omakase_level | SMALLINT | NOT NULL, DEFAULT 3 | おまかせレベル（1〜5） |
+| display_mode | VARCHAR(10) | NOT NULL, DEFAULT 'dark' | 表示モード（light / dark） |
 | excerpt_style | VARCHAR(20) | NOT NULL, DEFAULT 'title_only' | 抜粋方式（title_only / with_heading） |
 | created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | 作成日時 |
 | updated_at | TIMESTAMPTZ | NOT NULL | 更新日時 |

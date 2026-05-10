@@ -5,10 +5,10 @@
 - 言語: TypeScript（strictモード）
 - フレームワーク: Next.js（最新安定版・App Router）
 - CSS: Tailwind CSS
-- 認証: NextAuth（Auth.js）+ Prisma Adapter
+- 認証: カスタムセッション認証（session.ts、NextAuth互換スキーマ）
 - ORM: Prisma
-- バリデーション: Zod
-- 状態管理: useState → useContext → Zustand（複雑度に応じて段階的に採用）
+- バリデーション: Zod（MVP段階では未導入）
+- 状態管理: useState → useContext（Zustand: MVP段階では未導入）
 - バックエンド境界: Server Action優先
 
 ---
@@ -237,26 +237,22 @@ async function addBookmark(url: string) {
   await prisma.bookmark.create({ data: { url } })
 }
 
-// OK: 認証チェック + Zodバリデーション
+// OK: 認証チェック + バリデーション
 'use server'
-import { getServerSession } from 'next-auth'
-import { z } from 'zod'
+import { requireUser } from '@/lib/session'
 import { logger } from '@/lib/logger'
 
-const bookmarkSchema = z.object({
-  url: z.string().url(),
-})
-
 async function addBookmark(input: unknown) {
-  const session = await getServerSession()
-  if (session == null) throw new Error('Unauthorized')
+  const user = await requireUser()
 
-  const parsed = bookmarkSchema.safeParse(input)
-  if (!parsed.success) throw new Error('Invalid input')
+  const url = (input as { url?: string })?.url
+  if (typeof url !== 'string' || !url.startsWith('http')) {
+    throw new Error('Invalid input')
+  }
 
   try {
     await prisma.bookmark.create({
-      data: { url: parsed.data.url, userId: session.user.id },
+      data: { url, userId: user.id },
     })
   } catch (e) {
     logger.error('addBookmark failed', e)

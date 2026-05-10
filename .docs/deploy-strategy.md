@@ -33,9 +33,9 @@
 │  GitHub Actions (cron)                              │
 │  ┌───────────────────────────────────────────────┐  │
 │  │  日次バッチ (Python)                           │  │
-│  │  - コンテンツ収集（はてブAPI・RSS）             │  │
-│  │  - タグ自動付与（Gemini API）                   │  │
-│  │  - weight更新                                  │  │
+│  │  1. collect_all.py（はてブ・Qiita・Zenn・GIGAZINE）│  │
+│  │  2. register.py（DB登録・ルールベース分類）     │  │
+│  │  3. autotag.py（Gemini APIカテゴリ分類）        │  │
 │  └──────────────────────┬────────────────────────┘  │
 │                         │ psycopg2 (直接接続)        │
 └─────────────────────────┼───────────────────────────┘
@@ -52,7 +52,7 @@
 | Web | localhost:3001 (next dev) | Vercel (*.vercel.app) |
 | DB | Docker PostgreSQL 16 (localhost:5433) | Supabase PostgreSQL |
 | バッチ | ローカル手動実行 | GitHub Actions cron |
-| 認証 | NextAuth (Credentials) | NextAuth (Credentials) |
+| 認証 | カスタムセッション（session.ts） | カスタムセッション（session.ts） |
 | メール | コンソールログ出力 | Resend API |
 | LLM | Gemini 2.5 Flash-Lite | Gemini 2.5 Flash-Lite |
 
@@ -74,11 +74,9 @@ Vercel Environment Variables（Vercelダッシュボードで設定）。コー�
 |--------|------|------|------|
 | `DATABASE_URL` | Prisma接続（Transaction Pooler） | Docker PostgreSQL | Supabase pooler (6543) |
 | `DIRECT_URL` | Prisma migrate用（Session Pooler） | 同上 | Supabase direct (5432) |
-| `NEXTAUTH_SECRET` | NextAuthセッション暗号化キー | ランダム文字列 | `openssl rand -base64 32` |
-| `NEXTAUTH_URL` | NextAuthコールバックURL | `http://localhost:3001` | Vercel自動設定 |
 | `RESEND_API_KEY` | メール送信 | 不要（コンソール出力） | Resend APIキー |
-| `GOOGLE_AI_API_KEY` | Gemini API（バッチ用） | APIキー | GitHub Secrets |
-| `LLM_PROVIDER` | LLMアダプタ切替 | `gemini` | `gemini` |
+| `GEMINI_API_KEY` | Gemini API（バッチ用） | APIキー | GitHub Secrets (`GEMINI_API_KEY`) |
+| `BATCH_DATABASE_URL` | バッチ用DB接続（GitHub Actions） | — | GitHub Secrets |
 
 ### Prisma datasource設定
 
@@ -108,53 +106,63 @@ Vercelのデフォルト動作をそのまま利用する。Build Command は `t
 
 ### ビルドコマンド
 
-```bash
-# Vercel Build Settings
-# Framework Preset: Next.js
-# Root Directory: apps/web
-# Build Command: cd ../.. && npx turbo build --filter=web
-# Install Command: npm install
+```json
+// vercel.json（リポジトリルートに配置）
+{
+  "buildCommand": "npm run build -- --filter=web",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "outputDirectory": "apps/web/.next"
+}
 ```
 
-monorepo構成のため、Root Directoryを `apps/web` に設定し、Build Commandでルートからturboを実行する。
+monorepo構成のため、vercel.jsonでビルド設定を明示。Root Directoryは未設定（リポジトリルート）。マイグレーションはビルドに含めず、スキーマ変更時にローカルから `DIRECT_URL` 経由で手動実行する。
 
 ### GitHub Actions: 日次バッチ
 
 ```yaml
-# .github/workflows/daily-batch.yml
-name: Daily Content Collection
+# .github/workflows/batch-daily.yml
+name: Daily Batch - Collect & Classify
 
 on:
   schedule:
-    - cron: '0 18 * * *'  # JST 03:00（UTC 18:00前日）
+    - cron: '0 21 * * *'  # UTC 21:00 = JST 06:00
   workflow_dispatch:       # 手動実行も可能
 
 jobs:
-  collect:
+  batch:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: batch
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: batch/requirements.txt
       - name: Install dependencies
-        run: |
-          cd batch
-          pip install -r requirements.txt
-      - name: Run collection
+        run: pip install -r requirements.txt
+      - name: Collect articles
+        run: python collect_all.py
+      - name: Register to DB
         env:
           DATABASE_URL: ${{ secrets.BATCH_DATABASE_URL }}
-          GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
-        run: |
-          cd batch
-          python collect_all.py
-          python autotag.py
+        run: python register.py
+      - name: Auto-classify (autotag)
+        if: success()
+        env:
+          DATABASE_URL: ${{ secrets.BATCH_DATABASE_URL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python autotag.py
 ```
 
 - `BATCH_DATABASE_URL`: SupabaseのSession Pooler接続文字列（GitHub Secretsで管理）
+- `GEMINI_API_KEY`: Gemini APIキー（GitHub Secretsで管理）
 - `workflow_dispatch`: 手動トリガーも可能（デバッグ・緊急実行用）
-- `timeout-minutes: 30`: Gemini APIレート制限を考慮
+- `timeout-minutes: 15`: 収集＋登録＋LLM分類の合計時間
 
 ---
 
@@ -169,14 +177,15 @@ npx prisma migrate dev --name <migration_name>
 
 ### 本番デプロイ時
 
-Vercelのビルドプロセス内でマイグレーションを実行する。
+マイグレーションはVercelビルドに含めず、スキーマ変更時にローカルから手動実行する。
 
 ```bash
-# Vercel Build Command（マイグレーション込み）
-cd ../.. && npx prisma migrate deploy --schema=packages/db/prisma/schema.prisma && npx turbo build --filter=web
+# ローカルから本番DBにマイグレーション適用
+DATABASE_URL="$DIRECT_URL" npx prisma migrate deploy --schema=packages/db/prisma/schema.prisma
 ```
 
-- `prisma migrate deploy`: 未適用のマイグレーションのみ適用（本番安全）
+- Vercelビルド環境からはTransaction Pooler（port 6543）経由で接続するが、pgbouncer経由ではマイグレーション不可
+- `DIRECT_URL`（Session Pooler, port 5432）を使用してローカルから直接適用
 - `prisma migrate dev` は本番では使用しない（対話的操作が必要なため）
 
 ### ロールバック
@@ -205,7 +214,7 @@ secure-dev-rules.md の4層防御と本番環境の対応。
 |------|---------|
 | HTTPS強制 | Vercel標準（全通信TLS 1.3） |
 | CSPヘッダー | `next.config.ts` の `headers()` で設定 |
-| Secure Cookie | NextAuth本番設定（`secure: true`, `httpOnly: true`, `sameSite: lax`） |
+| Secure Cookie | session.tsでCookie設定（`secure: true`, `httpOnly: true`, `sameSite: lax`） |
 | 環境変数保護 | Vercel Environment Variables（暗号化保存、ログ非表示） |
 | DB接続制限 | Supabase接続プール + SSL必須 |
 | CORS | Next.js Server Actions（同一オリジン、CORS不要） |
@@ -276,33 +285,38 @@ secure-dev-rules.md の4層防御と本番環境の対応。
 
 1. GitHubリポジトリをVercelにインポート
 2. Framework Preset: Next.js
-3. Root Directory: `apps/web`
-4. Build Command: `cd ../.. && npx prisma migrate deploy --schema=packages/db/prisma/schema.prisma && npx turbo build --filter=web`
-5. Install Command: `npm install`
+3. vercel.jsonで設定（Build Command / Install Command / Output Directory）
+4. Root Directoryは未設定（リポジトリルート）
 
 ### 3. 環境変数設定（Vercel）
 
 ```
 DATABASE_URL=postgresql://...@...:6543/postgres?pgbouncer=true&sslmode=require
 DIRECT_URL=postgresql://...@...:5432/postgres?sslmode=require
-NEXTAUTH_SECRET=<openssl rand -base64 32>
 RESEND_API_KEY=<Resendダッシュボードから取得>
 ```
 
-### 4. 初回デプロイ
+### 4. DBマイグレーション（ローカルから実行）
+
+```bash
+DATABASE_URL="<DIRECT_URL>" npx prisma migrate deploy --schema=packages/db/prisma/schema.prisma
+python batch/seed_categories.py  # カテゴリマスタ初期投入（冪等）
+```
+
+### 5. 初回デプロイ
 
 1. `main` ブランチにpush
-2. Vercelが自動ビルド + マイグレーション適用
+2. Vercelが自動ビルド（マイグレーションは含まない）
 3. デプロイ後の動作確認
 
-### 5. GitHub Actions設定
+### 6. GitHub Actions設定
 
 1. Repository Settings → Secrets and variables → Actions
 2. `BATCH_DATABASE_URL`: Supabase Session Pooler接続文字列
-3. `GOOGLE_AI_API_KEY`: Gemini APIキー
-4. `.github/workflows/daily-batch.yml` をコミット
+3. `GEMINI_API_KEY`: Gemini APIキー
+4. `.github/workflows/batch-daily.yml` をコミット
 
-### 6. 動作確認チェックリスト
+### 7. 動作確認チェックリスト
 
 - [ ] Vercelデプロイ成功
 - [ ] ページ表示（フィード・設定・ライブラリ・ランキング）

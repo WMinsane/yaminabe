@@ -8,6 +8,7 @@ type LibraryItem = {
   feedId: number;
   action: "click" | "bookmark";
   title: string;
+  url: string;
   source: string;
   category: string;
   createdAt: string;
@@ -204,7 +205,7 @@ export function LibraryView({
                     {dateLabel}
                   </div>
                 )}
-                <div className="flex items-center gap-2 px-3 py-[3px] border-b border-border cursor-pointer transition-colors hover:bg-bg-secondary text-sm">
+                <div className="flex items-center gap-2 px-3 py-[3px] border-b border-border transition-colors hover:bg-bg-secondary text-sm">
                   <span
                     className={`shrink-0 text-[10px] font-bold px-1 py-[1px] rounded-sm min-w-[40px] text-center ${
                       item.action === "click"
@@ -214,9 +215,14 @@ export function LibraryView({
                   >
                     {ACTION_LABEL[item.action]}
                   </span>
-                  <span className="flex-1 min-w-0 whitespace-nowrap overflow-hidden text-ellipsis">
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 min-w-0 whitespace-nowrap overflow-hidden text-ellipsis text-text no-underline hover:text-primary transition-colors"
+                  >
                     {item.title}
-                  </span>
+                  </a>
                   <span className="shrink-0 text-[10px] text-text-tertiary whitespace-nowrap">
                     {formatTime(item.createdAt)}
                   </span>

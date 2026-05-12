@@ -268,7 +268,7 @@ export function SettingsView({
           href="/"
           className="block w-full p-3 text-center border border-border rounded-sm text-sm font-medium text-text hover:bg-bg-secondary transition-colors"
         >
-          フィードへ戻る
+          フィードを見る
         </a>
       </div>
     </div>

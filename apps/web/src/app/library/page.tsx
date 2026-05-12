@@ -31,6 +31,7 @@ export default async function LibraryPage() {
       feedId: number;
       action: "click" | "bookmark";
       title: string;
+      url: string;
       source: string;
       category: string;
       createdAt: string;
@@ -43,6 +44,7 @@ export default async function LibraryPage() {
         feedId: c.id,
         action: "bookmark",
         title: c.title,
+        url: c.url,
         source: c.source,
         category,
         createdAt: a.bookmarkedAt.toISOString(),
@@ -55,6 +57,7 @@ export default async function LibraryPage() {
         feedId: c.id,
         action: "click",
         title: c.title,
+        url: c.url,
         source: c.source,
         category,
         createdAt: a.clickedAt.toISOString(),

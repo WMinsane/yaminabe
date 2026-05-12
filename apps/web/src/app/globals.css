@@ -71,3 +71,12 @@ body {
   line-height: 1.7;
   transition: background-color var(--transition-normal), color var(--transition-normal);
 }
+
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.animate-slide-up {
+  animation: slide-up 250ms ease-out;
+}

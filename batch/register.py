@@ -22,6 +22,8 @@ DB_URL = os.environ.get(
     "postgresql://yaminabe:yaminabe_dev_pass@localhost:5433/yaminabe_dev",
 )
 
+QIITA_MIN_LIKES = 20
+
 
 def connect():
     return psycopg2.connect(DB_URL)
@@ -87,6 +89,7 @@ def register_articles(cur, articles, banlist):
     updated = 0
     blocked = 0
     blocked_by_domain = {}
+    filtered_low_likes = 0
 
     for article in articles:
         url = article["url"]
@@ -94,6 +97,10 @@ def register_articles(cur, articles, banlist):
         if host in banlist:
             blocked += 1
             blocked_by_domain[host] = blocked_by_domain.get(host, 0) + 1
+            continue
+
+        if article.get("source", "").startswith("qiita_") and article.get("likes", 0) < QIITA_MIN_LIKES:
+            filtered_low_likes += 1
             continue
 
         title = article["title"]
@@ -158,7 +165,7 @@ def register_articles(cur, articles, banlist):
                         (content_id, tag_id),
                     )
 
-    return inserted, updated, blocked, blocked_by_domain
+    return inserted, updated, blocked, blocked_by_domain, filtered_low_likes
 
 
 def load_and_flatten(path):
@@ -216,12 +223,13 @@ def main():
             ensure_feed_sources(cur)
             banlist = load_banlist(cur)
             print(f"banlist: {len(banlist)}ドメイン")
-            inserted, updated, blocked, blocked_by_domain = register_articles(cur, unique, banlist)
+            inserted, updated, blocked, blocked_by_domain, filtered_low_likes = register_articles(cur, unique, banlist)
         conn.commit()
         print(f"\n=== 登録完了 ===")
         print(f"新規: {inserted}件")
         print(f"更新: {updated}件")
         print(f"ブロック: {blocked}件")
+        print(f"Qiitaいいね{QIITA_MIN_LIKES}未満除外: {filtered_low_likes}件")
         for d, n in sorted(blocked_by_domain.items(), key=lambda x: -x[1]):
             print(f"  - {d}: {n}件")
 

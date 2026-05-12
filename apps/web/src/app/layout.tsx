@@ -25,6 +25,11 @@ export default async function RootLayout({
   return (
     <html lang="ja" className={`${notoSansJP.variable} h-full`}>
       <body className="min-h-full flex flex-col">
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(localStorage.getItem("theme")==="dark")document.documentElement.classList.add("dark")}catch(e){}`,
+          }}
+        />
         <Header userName={user?.name ?? user?.email ?? null} />
         <main className="flex-1">{children}</main>
         <ThemeToggle />

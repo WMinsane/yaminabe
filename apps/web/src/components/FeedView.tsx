@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { recordClick, toggleBookmark } from "@/app/actions";
+import { ArticlePreview } from "./ArticlePreview";
 
 type FeedItem = {
   id: number;
   title: string;
   url: string;
   source: string;
+  summary: string;
   category: string;
   tags: string[];
   bookmark_count: number;
@@ -33,14 +35,20 @@ function DenseItem({
   index,
   onClicked,
   onBookmarkToggled,
+  onPreview,
 }: {
   item: FeedItem;
   index: number;
   onClicked: (id: number) => void;
   onBookmarkToggled: (id: number, next: boolean) => void;
+  onPreview: (item: FeedItem) => void;
 }) {
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
+    if (window.innerWidth <= 768) {
+      onPreview(item);
+      return;
+    }
     onClicked(item.id);
     void recordClick(item.id);
     window.open(item.url, "_blank", "noopener,noreferrer");
@@ -115,11 +123,13 @@ function DenseCard({
   items,
   onClicked,
   onBookmarkToggled,
+  onPreview,
 }: {
   category: string;
   items: FeedItem[];
   onClicked: (id: number) => void;
   onBookmarkToggled: (id: number, next: boolean) => void;
+  onPreview: (item: FeedItem) => void;
 }) {
   return (
     <div className="border border-border rounded-sm mb-2 lg:mb-0 overflow-hidden">
@@ -135,6 +145,7 @@ function DenseCard({
             index={i}
             onClicked={onClicked}
             onBookmarkToggled={onBookmarkToggled}
+            onPreview={onPreview}
           />
         ))}
       </ul>
@@ -155,6 +166,7 @@ export function FeedView({
   const [activeCat, setActiveCat] = useState("全て");
   const [feedState, setFeedState] = useState(feeds);
   const [catVisible, setCatVisible] = useState<Record<string, number>>({});
+  const [previewItem, setPreviewItem] = useState<FeedItem | null>(null);
 
   const handleClicked = (id: number) => {
     setFeedState((prev) =>
@@ -165,6 +177,16 @@ export function FeedView({
     setFeedState((prev) =>
       prev.map((f) => (f.id === id ? { ...f, is_bookmarked: next } : f))
     );
+  };
+  const handlePreview = (item: FeedItem) => {
+    setPreviewItem(item);
+  };
+  const handlePreviewOpen = () => {
+    if (!previewItem) return;
+    handleClicked(previewItem.id);
+    void recordClick(previewItem.id);
+    window.open(previewItem.url, "_blank", "noopener,noreferrer");
+    setPreviewItem(null);
   };
 
   const grouped: Record<string, FeedItem[]> = {};
@@ -186,9 +208,22 @@ export function FeedView({
       <>
         <CatNav categories={categories} activeCat={activeCat} onSelect={(c) => { setActiveCat(c); setCatVisible({}); }} />
         <div className="max-w-[960px] mx-auto p-2 sm:p-3 lg:max-w-[1280px]">
-          <DenseCard category={activeCat} items={visible} onClicked={handleClicked} onBookmarkToggled={handleBookmarkToggled} />
+          <DenseCard category={activeCat} items={visible} onClicked={handleClicked} onBookmarkToggled={handleBookmarkToggled} onPreview={handlePreview} />
           {hasMore && <MoreButton onClick={() => showMore(activeCat)} />}
         </div>
+        {previewItem && (
+          <ArticlePreview
+            title={previewItem.title}
+            url={previewItem.url}
+            source={previewItem.source}
+            summary={previewItem.summary}
+            tags={previewItem.tags}
+            bookmarkCount={previewItem.bookmark_count}
+            publishedAt={previewItem.published_at}
+            onClose={() => setPreviewItem(null)}
+            onOpen={handlePreviewOpen}
+          />
+        )}
       </>
     );
   }
@@ -203,12 +238,25 @@ export function FeedView({
           const hasMore = items.length > limit;
           return (
             <div key={cat}>
-              <DenseCard category={cat} items={visible} onClicked={handleClicked} onBookmarkToggled={handleBookmarkToggled} />
+              <DenseCard category={cat} items={visible} onClicked={handleClicked} onBookmarkToggled={handleBookmarkToggled} onPreview={handlePreview} />
               {hasMore && <MoreButton onClick={() => showMore(cat)} />}
             </div>
           );
         })}
       </div>
+      {previewItem && (
+        <ArticlePreview
+          title={previewItem.title}
+          url={previewItem.url}
+          source={previewItem.source}
+          summary={previewItem.summary}
+          tags={previewItem.tags}
+          bookmarkCount={previewItem.bookmark_count}
+          publishedAt={previewItem.published_at}
+          onClose={() => setPreviewItem(null)}
+          onOpen={handlePreviewOpen}
+        />
+      )}
     </>
   );
 }

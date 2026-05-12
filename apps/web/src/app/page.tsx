@@ -87,6 +87,7 @@ export default async function FeedPage() {
       title: c.title,
       url: c.url,
       source: c.source,
+      summary: c.summary ?? "",
       category: c.category?.parent?.name ?? c.category?.name ?? "未分類",
       tags: c.contentTags.map((ct) => ct.tag.name).slice(0, 3),
       bookmark_count: c.bookmarkCount,

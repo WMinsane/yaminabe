@@ -19,8 +19,12 @@ function formatDate(iso: string) {
   return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
 }
 
-function shortenSource(s: string) {
-  return s.replace("はてなブックマーク", "はてブ").replace("個人ブログ", "blog");
+function extractDomain(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
 }
 
 export function ArticlePreview({
@@ -46,7 +50,7 @@ export function ArticlePreview({
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative w-full max-w-lg bg-bg border-t border-border rounded-t-xl shadow-lg animate-slide-up">
         <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border">
-          <span className="text-xs text-text-tertiary">{shortenSource(source)}</span>
+          <span className="text-xs text-text-tertiary">{extractDomain(url)}</span>
           <button
             onClick={onClose}
             className="border-none bg-transparent p-1 cursor-pointer text-text-tertiary hover:text-text text-lg leading-none"

@@ -26,8 +26,12 @@ function formatDate(iso: string) {
   return `${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
-function shortenSource(s: string) {
-  return s.replace("はてなブックマーク", "はてブ").replace("個人ブログ", "blog");
+function extractDomain(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
 }
 
 function DenseItem({
@@ -105,9 +109,6 @@ function DenseItem({
           {item.is_bookmarked ? "★" : "☆"}
         </button>
         <span className="shrink-0 flex items-baseline gap-2 text-[10px] text-text-tertiary whitespace-nowrap">
-          <span className="max-w-[60px] overflow-hidden text-ellipsis">
-            {shortenSource(item.source)}
-          </span>
           {item.bookmark_count > 0 && (
             <span className="text-text-secondary font-medium">{item.bookmark_count}user</span>
           )}

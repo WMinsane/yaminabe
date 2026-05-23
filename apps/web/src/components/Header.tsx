@@ -23,7 +23,7 @@ export function Header({ userName }: { userName?: string | null }) {
           闇鍋
         </a>
         <div className="flex-1" />
-        {userName && <span className="text-xs text-text-tertiary">{userName}</span>}
+        {userName && !userName.includes("@") && <span className="text-xs text-text-tertiary">{userName}</span>}
       </div>
 
       {menuOpen && (

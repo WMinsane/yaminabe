@@ -23,7 +23,7 @@ export default async function RootLayout({
 }>) {
   const user = await getCurrentUser();
   return (
-    <html lang="ja" className={`${notoSansJP.variable} h-full`}>
+    <html lang="ja" className={`${notoSansJP.variable} h-full`} suppressHydrationWarning>
       <body className="min-h-full flex flex-col">
         <script
           dangerouslySetInnerHTML={{

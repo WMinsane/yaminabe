@@ -90,34 +90,57 @@ JSON配列で返してください。他のテキストは不要です。
     return prompt
 
 
+MAX_RETRIES = 3
+
 def call_gemini(prompt):
-    """Gemini API呼び出し"""
-    resp = requests.post(
-        GEMINI_URL,
-        params={"key": GEMINI_API_KEY},
-        headers={"Content-Type": "application/json"},
-        json={
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "temperature": 0.1,
-                "responseMimeType": "application/json",
-            },
-        },
-        timeout=30,
-    )
+    """Gemini API呼び出し（リトライ付き）"""
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            resp = requests.post(
+                GEMINI_URL,
+                params={"key": GEMINI_API_KEY},
+                headers={"Content-Type": "application/json"},
+                json={
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {
+                        "temperature": 0.1,
+                        "responseMimeType": "application/json",
+                    },
+                },
+                timeout=30,
+            )
+        except requests.exceptions.Timeout:
+            wait = 2 ** attempt
+            print("  ⚠ タイムアウト (試行{}/{}) {}秒後にリトライ".format(attempt, MAX_RETRIES, wait))
+            if attempt == MAX_RETRIES:
+                print("  ✗ 最大リトライ回数到達")
+                return None
+            time.sleep(wait)
+            continue
 
-    if resp.status_code != 200:
-        print("  ⚠ Gemini APIエラー: {} {}".format(resp.status_code, resp.text[:200]))
-        return None
+        if resp.status_code == 429 or resp.status_code >= 500:
+            wait = 2 ** attempt
+            print("  ⚠ APIエラー {} (試行{}/{}) {}秒後にリトライ".format(resp.status_code, attempt, MAX_RETRIES, wait))
+            if attempt == MAX_RETRIES:
+                print("  ✗ 最大リトライ回数到達: {}".format(resp.text[:200]))
+                return None
+            time.sleep(wait)
+            continue
 
-    data = resp.json()
-    text = data["candidates"][0]["content"]["parts"][0]["text"]
+        if resp.status_code != 200:
+            print("  ⚠ Gemini APIエラー: {} {}".format(resp.status_code, resp.text[:200]))
+            return None
 
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        print("  ⚠ JSONパースエラー: {}".format(text[:200]))
-        return None
+        data = resp.json()
+        text = data["candidates"][0]["content"]["parts"][0]["text"]
+
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            print("  ⚠ JSONパースエラー: {}".format(text[:200]))
+            return None
+
+    return None
 
 
 def main():

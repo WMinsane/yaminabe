@@ -94,6 +94,19 @@ export async function toggleBookmark(contentId: number) {
   return { ok: true, isBookmarked: next };
 }
 
+export async function saveDisplayMode(mode: "light" | "dark") {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, reason: "unauthenticated" as const };
+
+  await prisma.userSetting.upsert({
+    where: { userId: user.id },
+    create: { userId: user.id, displayMode: mode, updatedBy: user.id },
+    update: { displayMode: mode, updatedBy: user.id },
+  });
+
+  return { ok: true };
+}
+
 const VALID_DELIVERY_MODES = ["trend", "deep", "casual", "discovery", "omakase"];
 
 export async function saveSettings(data: {

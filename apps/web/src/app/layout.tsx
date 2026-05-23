@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Noto_Sans_JP } from "next/font/google";
 import "./globals.css";
+import { prisma } from "@yaminabe/db";
 import { Header } from "@/components/Header";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { getCurrentUser } from "@/lib/session";
@@ -22,17 +23,20 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const user = await getCurrentUser();
+  let isDark = false;
+  if (user) {
+    const setting = await prisma.userSetting.findUnique({
+      where: { userId: user.id },
+      select: { displayMode: true },
+    });
+    isDark = (setting?.displayMode ?? "dark") === "dark";
+  }
   return (
-    <html lang="ja" className={`${notoSansJP.variable} h-full`} suppressHydrationWarning>
+    <html lang="ja" className={`${notoSansJP.variable} h-full${isDark ? " dark" : ""}`}>
       <body className="min-h-full flex flex-col">
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `try{if(localStorage.getItem("theme")==="dark")document.documentElement.classList.add("dark")}catch(e){}`,
-          }}
-        />
         <Header userName={user?.name ?? user?.email ?? null} />
         <main className="flex-1">{children}</main>
-        <ThemeToggle />
+        {user && <ThemeToggle initialDark={isDark} />}
       </body>
     </html>
   );

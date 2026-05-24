@@ -204,15 +204,17 @@ model UserCategory {
 }
 
 model UserTag {
-  userId    String    @map("user_id") @db.VarChar(25)
-  tagId     Int       @map("tag_id")
-  weight    Decimal   @default(1.00) @db.Decimal(5, 2)
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  updatedBy String?   @map("updated_by") @db.VarChar(25)
-  deletedAt DateTime? @map("deleted_at")
-  tag       Tag       @relation(fields: [tagId], references: [id])
-  user      User      @relation(fields: [userId], references: [id])
+  userId      String    @map("user_id") @db.VarChar(25)
+  tagId       Int       @map("tag_id")
+  weight      Decimal   @default(0.00) @db.Decimal(5, 2)
+  isExcluded  Boolean   @default(false) @map("is_excluded")
+  scoredUntil DateTime? @map("scored_until")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  updatedBy   String?   @map("updated_by") @db.VarChar(25)
+  deletedAt   DateTime? @map("deleted_at")
+  tag         Tag       @relation(fields: [tagId], references: [id])
+  user        User      @relation(fields: [userId], references: [id])
 
   @@id([userId, tagId])
   @@map("user_tag")

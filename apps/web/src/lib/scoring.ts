@@ -11,31 +11,15 @@ const MODE_WEIGHTS: Record<DeliveryMode, { affinity: number; freshness: number; 
 };
 
 export async function buildTagAffinity(userId: string): Promise<Map<number, number>> {
-  const actions = await prisma.userAction.findMany({
-    where: { userId, deletedAt: null },
-    select: {
-      isClicked: true,
-      isBookmarked: true,
-      isBounced: true,
-      content: {
-        select: {
-          contentTags: { select: { tagId: true } },
-        },
-      },
-    },
+  const userTags = await prisma.userTag.findMany({
+    where: { userId, isExcluded: false, deletedAt: null },
+    select: { tagId: true, weight: true },
   });
 
   const tagScores = new Map<number, number>();
-  for (const a of actions) {
-    let weight = 0;
-    if (a.isClicked) weight += 1;
-    if (a.isBookmarked) weight += 3;
-    if (a.isBounced) weight -= 1;
-    if (weight === 0) continue;
-
-    for (const ct of a.content.contentTags) {
-      tagScores.set(ct.tagId, (tagScores.get(ct.tagId) ?? 0) + weight);
-    }
+  for (const ut of userTags) {
+    const w = Number(ut.weight);
+    if (w > 0) tagScores.set(ut.tagId, w);
   }
 
   if (tagScores.size === 0) return tagScores;

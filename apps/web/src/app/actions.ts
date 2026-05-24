@@ -145,3 +145,59 @@ export async function saveSettings(data: {
   revalidatePath("/settings");
   return { ok: true };
 }
+
+export async function excludeTag(tagId: number) {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, reason: "unauthenticated" as const };
+
+  await prisma.userTag.update({
+    where: { userId_tagId: { userId: user.id, tagId } },
+    data: { weight: 0, isExcluded: true, updatedBy: user.id },
+  });
+
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+export async function restoreTag(tagId: number) {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, reason: "unauthenticated" as const };
+
+  await prisma.userTag.update({
+    where: { userId_tagId: { userId: user.id, tagId } },
+    data: { isExcluded: false, scoredUntil: new Date(), updatedBy: user.id },
+  });
+
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+export async function addTag(tagId: number) {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, reason: "unauthenticated" as const };
+
+  await prisma.userTag.upsert({
+    where: { userId_tagId: { userId: user.id, tagId } },
+    create: { userId: user.id, tagId, weight: 0, updatedBy: user.id },
+    update: { isExcluded: false, scoredUntil: new Date(), updatedBy: user.id },
+  });
+
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
+export async function searchTags(query: string) {
+  if (query.length < 1) return [];
+
+  const tags = await prisma.tag.findMany({
+    where: {
+      name: { contains: query, mode: "insensitive" },
+      deletedAt: null,
+    },
+    select: { id: true, name: true },
+    take: 10,
+    orderBy: { name: "asc" },
+  });
+
+  return tags;
+}

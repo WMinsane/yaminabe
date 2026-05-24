@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export default async function SettingsPage() {
   const user = await requireUser();
 
-  const [parents, setting, userCategories] = await Promise.all([
+  const [parents, setting, userCategories, userTags] = await Promise.all([
     prisma.category.findMany({
       where: { parentId: null, deletedAt: null },
       include: {
@@ -27,12 +27,24 @@ export default async function SettingsPage() {
       where: { userId: user.id, deletedAt: null },
       select: { categoryId: true },
     }),
+    prisma.userTag.findMany({
+      where: { userId: user.id, deletedAt: null },
+      include: { tag: { select: { id: true, name: true } } },
+      orderBy: { weight: "desc" },
+    }),
   ]);
 
   const categories = parents.map((p) => ({
     id: p.id,
     name: p.name,
     children: p.children,
+  }));
+
+  const tags = userTags.map((ut) => ({
+    id: ut.tag.id,
+    name: ut.tag.name,
+    weight: Number(ut.weight),
+    isExcluded: ut.isExcluded,
   }));
 
   return (
@@ -43,6 +55,7 @@ export default async function SettingsPage() {
       selectedCategoryIds={userCategories.map((uc) => uc.categoryId)}
       userEmail={user.email}
       userPlan={user.plan}
+      userTags={tags}
     />
   );
 }

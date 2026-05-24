@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { saveSettings } from "@/app/actions";
+import { saveSettings, excludeTag, restoreTag, addTag, searchTags } from "@/app/actions";
 
 type Child = { id: number; name: string };
 type Category = { id: number; name: string; children: Child[] };
@@ -22,6 +22,8 @@ const OMAKASE_LABELS: Record<number, string> = {
   5: "フルランダム",
 };
 
+type TagItem = { id: number; name: string; weight: number; isExcluded: boolean };
+
 type Props = {
   categories: Category[];
   currentDeliveryMode: string;
@@ -29,6 +31,7 @@ type Props = {
   selectedCategoryIds: number[];
   userEmail: string;
   userPlan: string;
+  userTags: TagItem[];
 };
 
 export function SettingsView({
@@ -38,6 +41,7 @@ export function SettingsView({
   selectedCategoryIds,
   userEmail,
   userPlan,
+  userTags,
 }: Props) {
   const [selectedMode, setSelectedMode] = useState(
     () => Math.max(0, MODES.findIndex((m) => m.value === currentDeliveryMode))
@@ -238,6 +242,9 @@ export function SettingsView({
         </div>
       </div>
 
+      {/* Interest tags */}
+      <TagSection initialTags={userTags} />
+
       {/* Account */}
       <div className="border border-border rounded-md overflow-hidden">
         <div className="px-3 py-2 bg-bg-tertiary text-sm font-bold border-b border-border">
@@ -270,6 +277,167 @@ export function SettingsView({
         >
           フィードを見る
         </a>
+      </div>
+    </div>
+  );
+}
+
+function WeightBar({ weight, maxWeight }: { weight: number; maxWeight: number }) {
+  const pct = maxWeight > 0 ? Math.min(100, (weight / maxWeight) * 100) : 0;
+  return (
+    <div className="w-16 h-[6px] bg-bg-tertiary rounded-full overflow-hidden">
+      <div
+        className="h-full bg-primary rounded-full transition-all"
+        style={{ width: `${pct}%` }}
+      />
+    </div>
+  );
+}
+
+function TagSection({ initialTags }: { initialTags: TagItem[] }) {
+  const [tags, setTags] = useState(initialTags);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<{ id: number; name: string }[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+
+  const activeTags = tags.filter((t) => !t.isExcluded);
+  const excludedTags = tags.filter((t) => t.isExcluded);
+  const maxWeight = Math.max(...activeTags.map((t) => t.weight), 1);
+
+  async function handleExclude(tagId: number) {
+    setTags((prev) =>
+      prev.map((t) => (t.id === tagId ? { ...t, weight: 0, isExcluded: true } : t))
+    );
+    await excludeTag(tagId);
+  }
+
+  async function handleRestore(tagId: number) {
+    setTags((prev) =>
+      prev.map((t) => (t.id === tagId ? { ...t, isExcluded: false } : t))
+    );
+    await restoreTag(tagId);
+  }
+
+  async function handleSearch(query: string) {
+    setSearchQuery(query);
+    if (query.length < 1) {
+      setSearchResults([]);
+      return;
+    }
+    setSearching(true);
+    const results = await searchTags(query);
+    const existingIds = new Set(tags.map((t) => t.id));
+    setSearchResults(results.filter((r) => !existingIds.has(r.id)));
+    setSearching(false);
+  }
+
+  async function handleAdd(tag: { id: number; name: string }) {
+    setTags((prev) => [...prev, { ...tag, weight: 0, isExcluded: false }]);
+    setSearchQuery("");
+    setSearchResults([]);
+    setShowSearch(false);
+    await addTag(tag.id);
+  }
+
+  return (
+    <div className="border border-border rounded-md overflow-hidden md:col-span-2">
+      <div className="px-3 py-2 bg-bg-tertiary text-sm font-bold border-b border-border">
+        興味タグ
+      </div>
+      <div className="p-2">
+        {activeTags.length === 0 && excludedTags.length === 0 && (
+          <p className="text-xs text-text-tertiary py-2 px-1">
+            記事をクリック・ブックマークすると、興味タグが自動的に蓄積されます。
+          </p>
+        )}
+
+        {activeTags.map((tag) => (
+          <div
+            key={tag.id}
+            className="flex items-center gap-2 py-1.5 border-b border-border last:border-b-0"
+          >
+            <span className="text-sm flex-1 min-w-0">{tag.name}</span>
+            <WeightBar weight={tag.weight} maxWeight={maxWeight} />
+            <button
+              onClick={() => handleExclude(tag.id)}
+              className="shrink-0 w-6 h-6 flex items-center justify-center border-none bg-transparent cursor-pointer text-text-tertiary hover:text-danger text-xs transition-colors"
+              aria-label={`${tag.name}を除外`}
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+
+        {excludedTags.length > 0 && (
+          <>
+            <div className="text-[10px] text-text-tertiary py-1.5 mt-1 border-b border-border">
+              ── 除外中 ──
+            </div>
+            {excludedTags.map((tag) => (
+              <div
+                key={tag.id}
+                className="flex items-center gap-2 py-1.5 border-b border-border last:border-b-0 opacity-50"
+              >
+                <span className="text-sm flex-1 min-w-0">{tag.name}</span>
+                <div className="w-16" />
+                <button
+                  onClick={() => handleRestore(tag.id)}
+                  className="shrink-0 w-6 h-6 flex items-center justify-center border-none bg-transparent cursor-pointer text-text-tertiary hover:text-primary text-xs transition-colors"
+                  aria-label={`${tag.name}を復活`}
+                >
+                  ↩
+                </button>
+              </div>
+            ))}
+          </>
+        )}
+
+        {showSearch ? (
+          <div className="mt-2">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              placeholder="タグ名を入力..."
+              className="w-full px-2 py-1.5 text-sm border border-border rounded-sm bg-bg"
+              autoFocus
+            />
+            {searching && (
+              <p className="text-xs text-text-tertiary py-1">検索中...</p>
+            )}
+            {searchResults.length > 0 && (
+              <ul className="mt-1 border border-border rounded-sm overflow-hidden">
+                {searchResults.map((r) => (
+                  <li key={r.id}>
+                    <button
+                      onClick={() => handleAdd(r)}
+                      className="block w-full text-left px-2 py-1.5 text-sm hover:bg-bg-secondary transition-colors bg-transparent border-none cursor-pointer"
+                    >
+                      {r.name}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {searchQuery.length > 0 && !searching && searchResults.length === 0 && (
+              <p className="text-xs text-text-tertiary py-1">該当なし</p>
+            )}
+            <button
+              onClick={() => { setShowSearch(false); setSearchQuery(""); setSearchResults([]); }}
+              className="mt-1 text-xs text-text-tertiary hover:text-text cursor-pointer bg-transparent border-none"
+            >
+              キャンセル
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowSearch(true)}
+            className="mt-2 w-full py-1.5 border border-dashed border-border rounded-sm text-xs text-text-tertiary hover:text-text hover:border-text-tertiary cursor-pointer bg-transparent transition-colors"
+          >
+            + タグを追加
+          </button>
+        )}
       </div>
     </div>
   );

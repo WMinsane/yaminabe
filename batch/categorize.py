@@ -147,6 +147,7 @@ SOURCE_MAP: list[tuple[str, int]] = [
     ("hatena_entrylist_economics", CAT_MANAGEMENT),
     ("hatena_hotentry_social", CAT_WORKSTYLE),
     ("hatena_entrylist_social", CAT_WORKSTYLE),
+    ("nazology", CAT_BIOLOGY),
 ]
 
 # --- タイトルキーワード → カテゴリ（最終フォールバック）---

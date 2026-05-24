@@ -3,14 +3,16 @@ Yaminabe 全ソース統合コンテンツ収集
 - はてブRSS（全カテゴリ × hotentry/entrylist）
 - Qiita API v2（タグ別）
 - Zenn RSS（トピック別）
-- GIGAZINE RSS（全記事）
+- @IT RSS（全フォーラム）
+- ナゾロジー RSS（サイエンス系）
 
 使い方:
   python collect_all.py              # 全ソース収集
   python collect_all.py hatena       # はてブのみ
   python collect_all.py qiita        # Qiitaのみ
   python collect_all.py zenn         # Zennのみ
-  python collect_all.py gigazine     # GIGAZINEのみ
+  python collect_all.py atmarkit     # @ITのみ
+  python collect_all.py nazology     # ナゾロジーのみ
 """
 
 from __future__ import annotations
@@ -129,12 +131,21 @@ def collect_zenn():
 
 
 # ============================================================
-# GIGAZINE RSS
+# @IT RSS
 # ============================================================
 
-def collect_gigazine():
-    """GIGAZINE 全記事RSS"""
-    return parse_rss("gigazine", "https://gigazine.net/news/rss_2.0/")
+def collect_atmarkit():
+    """@IT 全フォーラムRSS"""
+    return parse_rss("atmarkit", "https://rss.itmedia.co.jp/rss/2.0/ait.xml")
+
+
+# ============================================================
+# ナゾロジー RSS
+# ============================================================
+
+def collect_nazology():
+    """ナゾロジー RSS"""
+    return parse_rss("nazology", "https://nazology.kusuguru.co.jp/feed")
 
 
 # ============================================================
@@ -172,7 +183,8 @@ COLLECTORS = {
     "hatena": ("はてブ", collect_hatena),
     "qiita": ("Qiita API", collect_qiita),
     "zenn": ("Zenn", collect_zenn),
-    "gigazine": ("GIGAZINE", collect_gigazine),
+    "atmarkit": ("@IT", collect_atmarkit),
+    "nazology": ("ナゾロジー", collect_nazology),
 }
 
 def main():

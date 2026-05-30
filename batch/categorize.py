@@ -32,9 +32,6 @@ CAT_MANAGEMENT = 8     # 経営・戦略
 CAT_MARKETING = 9      # マーケティング
 CAT_FINANCE = 10       # 投資・金融
 CAT_STARTUP = 11       # スタートアップ
-CAT_UIDESIGN = 13      # UIデザイン
-CAT_UXRESEARCH = 14    # UXリサーチ
-CAT_GRAPHIC = 15       # グラフィック
 CAT_CAREER = 17        # 転職・就活
 CAT_MGMT_CAREER = 18   # マネジメント
 CAT_SIDE_PROJECT = 19  # 副業・個人開発
@@ -47,6 +44,13 @@ CAT_MONEY = 26         # マネー
 CAT_PHYSICS = 28       # 物理・数学
 CAT_BIOLOGY = 29       # 生物・医学
 CAT_DATASCIENCE = 30   # データサイエンス
+
+BUSINESS_CATS = {CAT_MANAGEMENT, CAT_MARKETING, CAT_FINANCE, CAT_STARTUP}
+POLITICS_RE = re.compile(
+    r"国会|選挙|与党|野党|政権|政党|法案|議員|内閣|首相|大臣|閣僚"
+    r"|衆院|参院|国政|政策|外交|安保|防衛費|増税|減税|政府|官邸"
+    r"|トランプ|バイデン|習近平|プーチン|大統領|総裁選|党首",
+)
 
 # --- タグ → カテゴリ マッピング（小文字で照合） ---
 TAG_MAP: dict[str, int] = {}
@@ -84,12 +88,6 @@ _reg(CAT_MOBILE,
 _reg(CAT_DATASCIENCE,
      "データサイエンス", "データ分析", "snowflake", "numpy",
      "python3", "pandas", "scipy", "r言語")
-_reg(CAT_UIDESIGN,
-     "uidesign", "figma", "uiデザイン", "デザインシステム")
-_reg(CAT_UXRESEARCH,
-     "uxリサーチ", "ux", "ユーザビリティ")
-_reg(CAT_GRAPHIC,
-     "グラフィック", "イラスト", "フォント", "アイコン")
 _reg(CAT_MARKETING,
      "マーケティング", "seo", "広告", "sns運用")
 _reg(CAT_FINANCE,
@@ -125,23 +123,13 @@ _reg(CAT_PHYSICS,
 SOURCE_MAP: list[tuple[str, int]] = [
     ("qiita_api_claude", CAT_AI),
     ("qiita_claude", CAT_AI),
-    ("zenn_ai", CAT_AI),
     ("qiita_api_aws", CAT_INFRA),
     ("qiita_aws", CAT_INFRA),
-    ("zenn_aws", CAT_INFRA),
-    ("zenn_devops", CAT_INFRA),
-    ("zenn_docker", CAT_INFRA),
     ("qiita_api_docker", CAT_INFRA),
-    ("zenn_terraform", CAT_INFRA),
     ("qiita_api_terraform", CAT_INFRA),
     ("qiita_api_react", CAT_WEB),
-    ("zenn_react", CAT_WEB),
     ("qiita_api_Next.js", CAT_WEB),
-    ("zenn_nextjs", CAT_WEB),
     ("qiita_api_typescript", CAT_WEB),
-    ("zenn_typescript", CAT_WEB),
-    ("zenn_security", CAT_SECURITY),
-    ("zenn_python", CAT_DATASCIENCE),
     ("qiita_api_python", CAT_AI),
     ("hatena_hotentry_economics", CAT_MANAGEMENT),
     ("hatena_entrylist_economics", CAT_MANAGEMENT),
@@ -158,7 +146,6 @@ TITLE_RULES: list[tuple[re.Pattern, int]] = [
     (re.compile(r"セキュリティ|脆弱性|XSS|CSRF|マルウェア|ゼロデイ|不正アクセス", re.I), CAT_SECURITY),
     (re.compile(r"iOS|Android|Swift|Flutter|アプリ開発", re.I), CAT_MOBILE),
     (re.compile(r"データ分析|統計|機械学習|データサイエンス", re.I), CAT_DATASCIENCE),
-    (re.compile(r"UIデザイン|UXデザイン|Figma|デザインシステム", re.I), CAT_UIDESIGN),
     (re.compile(r"マーケティング|SEO|広告|集客", re.I), CAT_MARKETING),
     (re.compile(r"投資|金融|株|経済|為替", re.I), CAT_FINANCE),
     (re.compile(r"経営|戦略|ビジネス|DX|組織", re.I), CAT_MANAGEMENT),
@@ -198,10 +185,17 @@ def classify_by_source(source: str) -> int | None:
     return None
 
 
+def _is_politics(title: str) -> bool:
+    return bool(POLITICS_RE.search(title))
+
+
 def classify_by_title(title: str) -> int | None:
     """タイトルキーワードからカテゴリを推定"""
+    is_political = _is_politics(title)
     for pattern, cat_id in TITLE_RULES:
         if pattern.search(title):
+            if is_political and cat_id in BUSINESS_CATS:
+                continue
             return cat_id
     return None
 

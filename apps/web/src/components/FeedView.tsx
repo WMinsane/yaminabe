@@ -64,6 +64,15 @@ function DenseItem({
     onBookmarkToggled(item.id, next);
     void toggleBookmark(item.id);
   };
+  const domain = (() => { try { return new URL(item.url).hostname.replace(/^www\./, ""); } catch { return ""; } })();
+  const titleParts = [domain];
+  if (item.summary) titleParts.push(item.summary);
+  if (item.tags.length > 0) titleParts.push(`タグ: ${item.tags.join(", ")}`);
+  const datePart = item.published_at ? new Date(item.published_at).toLocaleDateString("ja-JP") : "";
+  if (item.bookmark_count > 0 || datePart) {
+    titleParts.push([item.bookmark_count > 0 ? `${item.bookmark_count} users` : "", datePart].filter(Boolean).join(" | "));
+  }
+
   return (
     <li className="border-b border-border last:border-b-0">
       <a
@@ -71,6 +80,7 @@ function DenseItem({
         target="_blank"
         rel="noopener noreferrer"
         onClick={handleClick}
+        title={titleParts.join("\n")}
         className="flex items-baseline gap-2 px-3 py-[3px] text-sm leading-relaxed cursor-pointer transition-colors hover:bg-bg-secondary group no-underline"
       >
         <span className="shrink-0 w-[18px] text-right text-xs text-text-tertiary">

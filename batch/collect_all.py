@@ -111,26 +111,6 @@ def fetch_qiita_tag(tag):
 
 
 # ============================================================
-# Zenn RSS
-# ============================================================
-
-ZENN_TOPICS = [
-    "nextjs", "react", "typescript", "aws", "docker",
-    "python", "ai", "security", "devops", "terraform",
-]
-
-def collect_zenn():
-    """Zenn トピック別RSS"""
-    articles = []
-    for topic in ZENN_TOPICS:
-        name = "zenn_{}".format(topic)
-        url = "https://zenn.dev/topics/{}/feed".format(topic)
-        arts = parse_rss(name, url)
-        articles.extend(arts)
-    return articles
-
-
-# ============================================================
 # @IT RSS
 # ============================================================
 
@@ -182,7 +162,6 @@ def parse_rss(name, url):
 COLLECTORS = {
     "hatena": ("はてブ", collect_hatena),
     "qiita": ("Qiita API", collect_qiita),
-    "zenn": ("Zenn", collect_zenn),
     "atmarkit": ("@IT", collect_atmarkit),
     "nazology": ("ナゾロジー", collect_nazology),
 }

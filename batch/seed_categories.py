@@ -1,6 +1,6 @@
 """
 カテゴリマスタ seed投入（冪等）
-6親カテゴリ + 子カテゴリ
+5親カテゴリ + 子カテゴリ
 slug基準でUPSERT — 何度実行しても安全
 """
 
@@ -27,11 +27,6 @@ CATEGORIES = {
         ("マーケティング", "marketing"),
         ("投資・金融", "investment-finance"),
         ("スタートアップ", "startup"),
-    ],
-    ("デザイン", "design"): [
-        ("UIデザイン", "ui-design"),
-        ("UXリサーチ", "ux-research"),
-        ("グラフィック", "graphic"),
     ],
     ("キャリア", "career"): [
         ("転職・就活", "job-hunting"),

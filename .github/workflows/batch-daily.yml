@@ -33,9 +33,21 @@ jobs:
           DATABASE_URL: ${{ secrets.BATCH_DATABASE_URL }}
         run: python register.py
 
-      - name: Auto-classify (autotag)
+      - name: Rule-based classify
+        if: success()
+        env:
+          DATABASE_URL: ${{ secrets.BATCH_DATABASE_URL }}
+        run: python categorize.py
+
+      - name: LLM classify + tag
         if: success()
         env:
           DATABASE_URL: ${{ secrets.BATCH_DATABASE_URL }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python autotag.py
+
+      - name: Update user tag weights
+        if: success()
+        env:
+          DATABASE_URL: ${{ secrets.BATCH_DATABASE_URL }}
+        run: python update_user_tags.py

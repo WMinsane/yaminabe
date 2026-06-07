@@ -50,7 +50,25 @@ def get_untagged_content(cur, limit=None):
     if limit:
         sql += " LIMIT {}".format(limit)
     cur.execute(sql)
-    return [{"id": r[0], "title": r[1], "source": r[2], "summary": r[3]} for r in cur.fetchall()]
+    return [{"id": r[0], "title": r[1], "source": r[2], "summary": r[3], "needs_tags": True} for r in cur.fetchall()]
+
+
+def get_tagless_content(cur, limit=None):
+    """カテゴリ済みだがタグなしのコンテンツを取得（Qiita以外）"""
+    sql = """
+        SELECT c.id, c.title, c.source, c.summary
+        FROM content c
+        LEFT JOIN content_tag ct ON c.id = ct.content_id
+        WHERE c.category_id IS NOT NULL
+          AND c.deleted_at IS NULL
+          AND c.source NOT LIKE 'qiita%%'
+          AND ct.content_id IS NULL
+        ORDER BY c.id
+    """
+    if limit:
+        sql += " LIMIT {}".format(limit)
+    cur.execute(sql)
+    return [{"id": r[0], "title": r[1], "source": r[2], "summary": r[3], "needs_tags": True, "has_category": True} for r in cur.fetchall()]
 
 
 def build_prompt(articles, categories):
@@ -72,7 +90,7 @@ def build_prompt(articles, categories):
             (a["summary"] or "")[:100],
         )
 
-    prompt = """以下の記事リストを、指定されたカテゴリに分類してください。
+    prompt = """以下の記事リストを、指定されたカテゴリに分類し、各記事にタグを付与してください。
 
 ## カテゴリ一覧（子カテゴリのidを返してください）
 {}
@@ -82,14 +100,21 @@ def build_prompt(articles, categories):
 
 ## 出力形式
 JSON配列で返してください。他のテキストは不要です。
-[{{"content_id": 1, "category_id": 2}}, ...]
+[{{"content_id": 1, "category_id": 2, "tags": ["Python", "AWS", "Docker"]}}, ...]
 
+## カテゴリ分類ルール
 - 必ず子カテゴリのidを指定してください
 - 複数カテゴリに該当する場合は最も適切な1つを選んでください
 - どのカテゴリにも該当しない場合は category_id を null にしてください
 - 政治・政策・外交・選挙に関する記事はビジネス・経済カテゴリに分類しないでください（category_id を null にしてください）
 - Python一般の記事をデータサイエンスに分類しないでください。Web開発やインフラなど実際の内容に合ったカテゴリを選んでください
-- 「ルール」「制度」等のキーワードだけで働き方・キャリアに分類しないでください。記事の主題で判断してください""".format(cat_text, articles_text)
+- 「ルール」「制度」等のキーワードだけで働き方・キャリアに分類しないでください。記事の主題で判断してください
+
+## タグ付与ルール
+- 各記事に3〜5個のタグを付与してください
+- タグは記事の主題を表す具体的なキーワード（技術名、概念名、分野名等）
+- 一般的すぎるタグ（「記事」「情報」「ニュース」等）は避けてください
+- 既存のタグ名と表記を揃えてください（例: 「JavaScript」と「javascript」は「JavaScript」に統一）""".format(cat_text, articles_text)
 
     return prompt
 
@@ -147,6 +172,33 @@ def call_gemini(prompt):
     return None
 
 
+def save_tags(conn, content_id, tag_names):
+    """タグをtagテーブルにUPSERT、content_tagに紐付け"""
+    with conn.cursor() as cur:
+        for name in tag_names:
+            name = name.strip()
+            if not name:
+                continue
+            cur.execute(
+                """
+                INSERT INTO tag (name, created_at, updated_at)
+                VALUES (%s, NOW(), NOW())
+                ON CONFLICT (name) DO UPDATE SET updated_at = NOW()
+                RETURNING id
+                """,
+                (name,),
+            )
+            tag_id = cur.fetchone()[0]
+            cur.execute(
+                """
+                INSERT INTO content_tag (content_id, tag_id, created_at, updated_at)
+                VALUES (%s, %s, NOW(), NOW())
+                ON CONFLICT (content_id, tag_id) DO NOTHING
+                """,
+                (content_id, tag_id),
+            )
+
+
 def main():
     if not GEMINI_API_KEY:
         print("エラー: GEMINI_API_KEY が設定されていません")
@@ -163,22 +215,25 @@ def main():
     try:
         with conn.cursor() as cur:
             categories = get_categories(cur)
-            articles = get_untagged_content(cur, limit)
+            untagged = get_untagged_content(cur, limit)
+            tagless = get_tagless_content(cur, limit)
+
+        articles = untagged + tagless
 
         if not articles:
-            print("未分類コンテンツなし")
+            print("対象コンテンツなし")
             return
 
-        print("=== LLMカテゴリ自動付与 ===")
-        print("対象: {}件".format(len(articles)))
+        print("=== LLMカテゴリ分類 + タグ付与 ===")
+        print("未分類: {}件 / タグなし: {}件 / 合計: {}件".format(len(untagged), len(tagless), len(articles)))
         print("モード: {}".format("dry-run" if dry_run else "本番"))
         print("モデル: {}\n".format(GEMINI_MODEL))
 
         total_updated = 0
+        total_tagged = 0
         total_null = 0
         total_error = 0
 
-        # バッチ処理
         for i in range(0, len(articles), BATCH_SIZE):
             batch = articles[i:i + BATCH_SIZE]
             print("バッチ {}/{} ({}件)".format(
@@ -194,20 +249,23 @@ def main():
                 total_error += len(batch)
                 continue
 
-            # 結果を適用
-            result_map = {r["content_id"]: r.get("category_id") for r in results}
+            result_map = {r["content_id"]: r for r in results}
 
             for a in batch:
-                cat_id = result_map.get(a["id"])
+                r = result_map.get(a["id"], {})
+                cat_id = r.get("category_id")
+                tags = r.get("tags", [])
+                has_category = a.get("has_category", False)
+
                 if cat_id and cat_id in BUSINESS_CATS and POLITICS_RE.search(a["title"] or ""):
                     print("  [{}] {} -> 政治記事のため除外".format(a["id"], a["title"][:40]))
                     total_null += 1
                     continue
-                if cat_id and cat_id in categories:
+
+                if not has_category and cat_id and cat_id in categories:
                     cat = categories[cat_id]
                     parent = categories.get(cat["parent_id"], {})
                     print("  [{}] {} -> {} > {}".format(a["id"], a["title"][:40], parent.get("name", "?"), cat["name"]))
-
                     if not dry_run:
                         with conn.cursor() as cur:
                             cur.execute(
@@ -215,19 +273,26 @@ def main():
                                 (cat_id, a["id"]),
                             )
                     total_updated += 1
-                else:
+                elif not has_category:
                     print("  [{}] {} -> 分類不能".format(a["id"], a["title"][:40]))
                     total_null += 1
+
+                if tags and not dry_run:
+                    save_tags(conn, a["id"], tags[:5])
+                    total_tagged += 1
+                elif tags and dry_run:
+                    print("    tags: {}".format(", ".join(tags[:5])))
+                    total_tagged += 1
 
             if not dry_run:
                 conn.commit()
 
-            # レート制限対策（15 RPM for free tier）
             if i + BATCH_SIZE < len(articles):
                 time.sleep(4)
 
         print("\n=== 完了 ===")
         print("分類成功: {}件".format(total_updated))
+        print("タグ付与: {}件".format(total_tagged))
         print("分類不能: {}件".format(total_null))
         print("エラー: {}件".format(total_error))
 

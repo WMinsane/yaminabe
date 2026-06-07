@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { recordClick, toggleBookmark } from "@/app/actions";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { recordClick, toggleBookmark, blockDomain } from "@/app/actions";
 import { ArticlePreview } from "./ArticlePreview";
 
 type FeedItem = {
@@ -40,13 +40,33 @@ function DenseItem({
   onClicked,
   onBookmarkToggled,
   onPreview,
+  onContextMenu,
 }: {
   item: FeedItem;
   index: number;
   onClicked: (id: number) => void;
   onBookmarkToggled: (id: number, next: boolean) => void;
   onPreview: (item: FeedItem) => void;
+  onContextMenu: (item: FeedItem, x: number, y: number) => void;
 }) {
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleTouchStart = (e: React.TouchEvent) => {
+    longPressTimer.current = setTimeout(() => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      onContextMenu(item, touch.clientX, touch.clientY);
+    }, 500);
+  };
+  const handleTouchEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+  const handleRightClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    onContextMenu(item, e.clientX, e.clientY);
+  };
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     if (window.innerWidth <= 768) {
@@ -74,7 +94,13 @@ function DenseItem({
   }
 
   return (
-    <li className="border-b border-border last:border-b-0">
+    <li
+      className="border-b border-border last:border-b-0"
+      onContextMenu={handleRightClick}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchMove={handleTouchEnd}
+    >
       <a
         href={item.url}
         target="_blank"
@@ -135,12 +161,14 @@ function DenseCard({
   onClicked,
   onBookmarkToggled,
   onPreview,
+  onContextMenu,
 }: {
   category: string;
   items: FeedItem[];
   onClicked: (id: number) => void;
   onBookmarkToggled: (id: number, next: boolean) => void;
   onPreview: (item: FeedItem) => void;
+  onContextMenu: (item: FeedItem, x: number, y: number) => void;
 }) {
   return (
     <div className="border border-border rounded-sm mb-2 lg:mb-0 overflow-hidden">
@@ -157,6 +185,7 @@ function DenseCard({
             onClicked={onClicked}
             onBookmarkToggled={onBookmarkToggled}
             onPreview={onPreview}
+            onContextMenu={onContextMenu}
           />
         ))}
       </ul>
@@ -178,6 +207,7 @@ export function FeedView({
   const [feedState, setFeedState] = useState(feeds);
   const [catVisible, setCatVisible] = useState<Record<string, number>>({});
   const [previewItem, setPreviewItem] = useState<FeedItem | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<{ item: FeedItem; x: number; y: number } | null>(null);
 
   const handleClicked = (id: number) => {
     setFeedState((prev) =>
@@ -199,6 +229,17 @@ export function FeedView({
     window.open(previewItem.url, "_blank", "noopener,noreferrer");
     setPreviewItem(null);
   };
+  const handleContextMenu = useCallback((item: FeedItem, x: number, y: number) => {
+    setCtxMenu({ item, x, y });
+  }, []);
+  const handleBlockDomain = useCallback(async () => {
+    if (!ctxMenu) return;
+    const domain = extractDomain(ctxMenu.item.url);
+    if (!domain) return;
+    setFeedState((prev) => prev.filter((f) => extractDomain(f.url) !== domain));
+    setCtxMenu(null);
+    await blockDomain(domain);
+  }, [ctxMenu]);
 
   const grouped: Record<string, FeedItem[]> = {};
   for (const f of feedState) {
@@ -219,7 +260,7 @@ export function FeedView({
       <>
         <CatNav categories={categories} activeCat={activeCat} onSelect={(c) => { setActiveCat(c); setCatVisible({}); }} />
         <div className="max-w-[960px] mx-auto p-2 sm:p-3 lg:max-w-[1280px]">
-          <DenseCard category={activeCat} items={visible} onClicked={handleClicked} onBookmarkToggled={handleBookmarkToggled} onPreview={handlePreview} />
+          <DenseCard category={activeCat} items={visible} onClicked={handleClicked} onBookmarkToggled={handleBookmarkToggled} onPreview={handlePreview} onContextMenu={handleContextMenu} />
           {hasMore && <MoreButton onClick={() => showMore(activeCat)} />}
         </div>
         {previewItem && (
@@ -233,6 +274,15 @@ export function FeedView({
             publishedAt={previewItem.published_at}
             onClose={() => setPreviewItem(null)}
             onOpen={handlePreviewOpen}
+          />
+        )}
+        {ctxMenu && (
+          <DomainContextMenu
+            domain={extractDomain(ctxMenu.item.url)}
+            x={ctxMenu.x}
+            y={ctxMenu.y}
+            onBlock={handleBlockDomain}
+            onClose={() => setCtxMenu(null)}
           />
         )}
       </>
@@ -249,7 +299,7 @@ export function FeedView({
           const hasMore = items.length > limit;
           return (
             <div key={cat}>
-              <DenseCard category={cat} items={visible} onClicked={handleClicked} onBookmarkToggled={handleBookmarkToggled} onPreview={handlePreview} />
+              <DenseCard category={cat} items={visible} onClicked={handleClicked} onBookmarkToggled={handleBookmarkToggled} onPreview={handlePreview} onContextMenu={handleContextMenu} />
               {hasMore && <MoreButton onClick={() => showMore(cat)} />}
             </div>
           );
@@ -266,6 +316,15 @@ export function FeedView({
           publishedAt={previewItem.published_at}
           onClose={() => setPreviewItem(null)}
           onOpen={handlePreviewOpen}
+        />
+      )}
+      {ctxMenu && (
+        <DomainContextMenu
+          domain={extractDomain(ctxMenu.item.url)}
+          x={ctxMenu.x}
+          y={ctxMenu.y}
+          onBlock={handleBlockDomain}
+          onClose={() => setCtxMenu(null)}
         />
       )}
     </>
@@ -300,6 +359,68 @@ function MoreButton({ onClick }: { onClick: () => void }) {
         className="px-6 py-1.5 border border-border rounded-sm text-xs cursor-pointer bg-bg hover:bg-bg-secondary transition-colors"
       >
         もっと見る
+      </button>
+    </div>
+  );
+}
+
+function DomainContextMenu({
+  domain,
+  x,
+  y,
+  onBlock,
+  onClose,
+}: {
+  domain: string;
+  x: number;
+  y: number;
+  onBlock: () => void;
+  onClose: () => void;
+}) {
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClick = (e: Event) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("touchstart", handleClick);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("touchstart", handleClick);
+    };
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!menuRef.current) return;
+    const rect = menuRef.current.getBoundingClientRect();
+    if (rect.right > window.innerWidth) {
+      menuRef.current.style.left = `${window.innerWidth - rect.width - 8}px`;
+    }
+    if (rect.bottom > window.innerHeight) {
+      menuRef.current.style.top = `${window.innerHeight - rect.height - 8}px`;
+    }
+  }, []);
+
+  return (
+    <div
+      ref={menuRef}
+      className="fixed z-[400] bg-bg border border-border rounded shadow-lg py-1 min-w-[200px]"
+      style={{ left: x, top: y }}
+    >
+      <button
+        onClick={onBlock}
+        className="w-full text-left px-4 py-2 text-sm cursor-pointer bg-transparent border-none hover:bg-bg-secondary transition-colors text-text"
+      >
+        {domain} を非表示にする
+      </button>
+      <button
+        onClick={onClose}
+        className="w-full text-left px-4 py-2 text-sm cursor-pointer bg-transparent border-none hover:bg-bg-secondary transition-colors text-text-tertiary"
+      >
+        キャンセル
       </button>
     </div>
   );

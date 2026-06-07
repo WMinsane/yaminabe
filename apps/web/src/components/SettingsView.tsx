@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { saveSettings, excludeTag, restoreTag, addTag, searchTags } from "@/app/actions";
+import { saveSettings, excludeTag, restoreTag, addTag, searchTags, unblockDomain } from "@/app/actions";
 
 type Child = { id: number; name: string };
 type Category = { id: number; name: string; children: Child[] };
@@ -32,6 +32,7 @@ type Props = {
   userEmail: string;
   userPlan: string;
   userTags: TagItem[];
+  blockedDomains: string[];
 };
 
 export function SettingsView({
@@ -42,6 +43,7 @@ export function SettingsView({
   userEmail,
   userPlan,
   userTags,
+  blockedDomains,
 }: Props) {
   const [selectedMode, setSelectedMode] = useState(
     () => Math.max(0, MODES.findIndex((m) => m.value === currentDeliveryMode))
@@ -245,6 +247,9 @@ export function SettingsView({
       {/* Interest tags */}
       <TagSection initialTags={userTags} />
 
+      {/* Blocked domains */}
+      <BlockedDomainSection initialDomains={blockedDomains} />
+
       {/* Account */}
       <div className="border border-border rounded-md overflow-hidden">
         <div className="px-3 py-2 bg-bg-tertiary text-sm font-bold border-b border-border">
@@ -438,6 +443,41 @@ function TagSection({ initialTags }: { initialTags: TagItem[] }) {
             + タグを追加
           </button>
         )}
+      </div>
+    </div>
+  );
+}
+
+function BlockedDomainSection({ initialDomains }: { initialDomains: string[] }) {
+  const [domains, setDomains] = useState(initialDomains);
+
+  async function handleUnblock(domain: string) {
+    setDomains((prev) => prev.filter((d) => d !== domain));
+    await unblockDomain(domain);
+  }
+
+  if (domains.length === 0) return null;
+
+  return (
+    <div className="border border-border rounded-md overflow-hidden">
+      <div className="px-3 py-2 bg-bg-tertiary text-sm font-bold border-b border-border">
+        非表示サイト
+      </div>
+      <div className="p-2">
+        {domains.map((domain) => (
+          <div
+            key={domain}
+            className="flex items-center justify-between py-1.5 border-b border-border last:border-b-0"
+          >
+            <span className="text-sm text-text-secondary">{domain}</span>
+            <button
+              onClick={() => handleUnblock(domain)}
+              className="shrink-0 px-2 py-0.5 text-xs border border-border rounded-sm bg-transparent cursor-pointer text-text-tertiary hover:text-text hover:border-text-tertiary transition-colors"
+            >
+              解除
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   );

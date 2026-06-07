@@ -91,7 +91,9 @@ _reg(CAT_DATASCIENCE,
 _reg(CAT_MARKETING,
      "マーケティング", "seo", "広告", "sns運用")
 _reg(CAT_FINANCE,
-     "投資", "金融", "株", "仮想通貨", "fintech")
+     "投資", "金融", "株", "仮想通貨", "fintech",
+     "保険", "年金", "資産運用", "フィンテック", "nisa", "ideco",
+     "確定拠出年金", "暗号資産", "ブロックチェーン", "節税", "住宅ローン")
 _reg(CAT_STARTUP,
      "スタートアップ", "起業", "producthunt")
 _reg(CAT_SIDE_PROJECT,
@@ -147,7 +149,7 @@ TITLE_RULES: list[tuple[re.Pattern, int]] = [
     (re.compile(r"iOS|Android|Swift|Flutter|アプリ開発", re.I), CAT_MOBILE),
     (re.compile(r"データ分析|統計|機械学習|データサイエンス", re.I), CAT_DATASCIENCE),
     (re.compile(r"マーケティング|SEO|広告|集客", re.I), CAT_MARKETING),
-    (re.compile(r"投資|金融|株|経済|為替", re.I), CAT_FINANCE),
+    (re.compile(r"投資|金融|株|経済|為替|保険|年金|社会保障|資産運用|フィンテック|NISA|iDeCo|確定拠出|ローン|節税", re.I), CAT_FINANCE),
     (re.compile(r"経営|戦略|ビジネス|DX|組織", re.I), CAT_MANAGEMENT),
     (re.compile(r"スタートアップ|起業|資金調達", re.I), CAT_STARTUP),
     (re.compile(r"転職|就活|キャリア|年収", re.I), CAT_CAREER),
@@ -191,11 +193,8 @@ def _is_politics(title: str) -> bool:
 
 def classify_by_title(title: str) -> int | None:
     """タイトルキーワードからカテゴリを推定"""
-    is_political = _is_politics(title)
     for pattern, cat_id in TITLE_RULES:
         if pattern.search(title):
-            if is_political and cat_id in BUSINESS_CATS:
-                continue
             return cat_id
     return None
 
@@ -250,6 +249,9 @@ def main():
             if cat_id is None:
                 cat_id = classify_by_title(title or "")
                 method = "title"
+
+            if cat_id is not None and cat_id in BUSINESS_CATS and _is_politics(title or ""):
+                cat_id = None
 
             if cat_id is not None:
                 classified += 1

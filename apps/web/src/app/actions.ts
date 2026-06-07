@@ -186,6 +186,38 @@ export async function addTag(tagId: number) {
   return { ok: true };
 }
 
+export async function blockDomain(domain: string) {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, reason: "unauthenticated" as const };
+
+  const cleaned = domain.toLowerCase().replace(/^www\./, "");
+  if (!cleaned || cleaned.length > 255) return { ok: false, reason: "invalid" as const };
+
+  // @ts-expect-error prisma generate未実行のためuserDomainBlockが型に存在しない
+  await prisma.userDomainBlock.upsert({
+    where: { userId_domain: { userId: user.id, domain: cleaned } },
+    create: { userId: user.id, domain: cleaned },
+    update: {},
+  });
+
+  revalidatePath("/");
+  return { ok: true, domain: cleaned };
+}
+
+export async function unblockDomain(domain: string) {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, reason: "unauthenticated" as const };
+
+  // @ts-expect-error prisma generate未実行のためuserDomainBlockが型に存在しない
+  await prisma.userDomainBlock.deleteMany({
+    where: { userId: user.id, domain },
+  });
+
+  revalidatePath("/");
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
 export async function searchTags(query: string) {
   if (query.length < 1) return [];
 

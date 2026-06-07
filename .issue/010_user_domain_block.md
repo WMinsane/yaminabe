@@ -1,9 +1,9 @@
 # ユーザー単位ドメインブロック機能
 
-- **Status**: Open
+- **Status**: In Progress
 - **Priority**: High
 - **起票日**: 2026-05-25
-- **種別**: 仕様検討
+- **種別**: 仕様検討 → 実装
 
 ## 課題
 
@@ -23,20 +23,26 @@
 | domain | VARCHAR(255) | NOT NULL | ブロック対象ドメイン |
 | created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | 作成日時 |
 | updated_at | TIMESTAMPTZ | NOT NULL | 更新日時 |
-| deleted_at | TIMESTAMPTZ | NULL | 論理削除日時 |
 
 **PK**: (user_id, domain)
 
+- deleted_at不要（ブロック解除＝行削除）
+
 ### フィルタリング
 
-- フィード表示時のスコアリング（scoring.ts）でユーザーのブロックドメイン一覧を取得し、該当記事を除外
-- `domain_banlist`（グローバル）→ 収集時に除外（既存）
-- `user_domain_block`（個人）→ 表示時に除外（新規）
+- `domain_banlist`（グローバル）→ 収集時に除外（既存・変更なし）
+- `user_domain_block`（個人）→ フィード表示時にそのユーザーだけ除外（新規）
+
+フィード表示のクエリ構成:
+- ブロックドメイン取得（`userDomainBlock.findMany`）を既存の`Promise.all`に追加（並列実行）
+- 取得後のフィルタはJavaScript側のin-memory処理（URLからドメイン抽出 → Setに含まれるか判定）
+- **Vercelサーバ側のAPI呼出回数・処理負荷への影響なし**（既存の並列クエリに1つ追加するのみ。外部API呼出は発生しない）
 
 ### UI
 
-- ArticlePreviewモーダル内に「このサイトを非表示」ボタン追加
-- 設定画面にブロック済みドメイン一覧・解除機能
+- **ブロック追加**: 記事行の長押し（スマホ）/ 右クリック（PC）→ コンテキストメニュー「このサイトを非表示にする」
+- **ブロック解除**: 設定画面にブロック済みドメイン一覧＋解除ボタン
+- フィード画面の表示要素は追加しない（既に要素が詰まっているため）
 
 ## 背景
 

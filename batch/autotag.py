@@ -19,6 +19,7 @@ import time
 
 import psycopg2
 import requests
+from categorize import BUSINESS_CATS, POLITICS_RE
 from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
@@ -198,6 +199,10 @@ def main():
 
             for a in batch:
                 cat_id = result_map.get(a["id"])
+                if cat_id and cat_id in BUSINESS_CATS and POLITICS_RE.search(a["title"] or ""):
+                    print("  [{}] {} -> 政治記事のため除外".format(a["id"], a["title"][:40]))
+                    total_null += 1
+                    continue
                 if cat_id and cat_id in categories:
                     cat = categories[cat_id]
                     parent = categories.get(cat["parent_id"], {})
@@ -228,13 +233,28 @@ def main():
 
         if not dry_run:
             with conn.cursor() as cur:
-                cur.execute("SELECT COUNT(*) FROM content WHERE category_id IS NOT NULL")
+                cur.execute("SELECT COUNT(*) FROM content WHERE category_id IS NULL AND deleted_at IS NULL")
+                remaining_null = cur.fetchone()[0]
+
+            if remaining_null > 0:
+                print("\n=== 未分類記事の物理削除 ===")
+                with conn.cursor() as cur:
+                    cur.execute("DELETE FROM content_tag WHERE content_id IN (SELECT id FROM content WHERE category_id IS NULL AND deleted_at IS NULL)")
+                    ct_del = cur.rowcount
+                    cur.execute("DELETE FROM user_action WHERE content_id IN (SELECT id FROM content WHERE category_id IS NULL AND deleted_at IS NULL)")
+                    ua_del = cur.rowcount
+                    cur.execute("DELETE FROM content WHERE category_id IS NULL AND deleted_at IS NULL")
+                    c_del = cur.rowcount
+                conn.commit()
+                print("削除: content {}件 (content_tag {}, user_action {})".format(c_del, ct_del, ua_del))
+            else:
+                print("\n未分類記事なし（削除対象なし）")
+
+            with conn.cursor() as cur:
+                cur.execute("SELECT COUNT(*) FROM content WHERE category_id IS NOT NULL AND deleted_at IS NULL")
                 tagged = cur.fetchone()[0]
-                cur.execute("SELECT COUNT(*) FROM content WHERE category_id IS NULL")
-                untagged = cur.fetchone()[0]
             print("\nDB状態:")
             print("  分類済み: {}件".format(tagged))
-            print("  未分類: {}件".format(untagged))
     finally:
         conn.close()
 

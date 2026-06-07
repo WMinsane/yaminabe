@@ -22,8 +22,9 @@ model User {
   sessions       Session[]
   userActions    UserAction[]
   userCategories UserCategory[]
-  userSetting    UserSetting?
-  userTags       UserTag[]
+  userSetting      UserSetting?
+  userTags         UserTag[]
+  domainBlocks     UserDomainBlock[]
 
   @@map("user")
 }
@@ -287,6 +288,17 @@ model WeeklyRanking {
   @@id([contentId, weekStart])
   @@index([weekStart])
   @@map("weekly_ranking")
+}
+
+model UserDomainBlock {
+  userId    String   @map("user_id") @db.VarChar(25)
+  domain    String   @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, domain])
+  @@map("user_domain_block")
 }
 
 model DomainBanlist {

@@ -148,7 +148,7 @@
 
 ### domain_banlist
 
-コンテンツ収集時にブロックするドメインの一覧。register.pyで収集時にURLのhost部と完全一致でフィルタする。
+コンテンツ収集時にブロックするドメインの一覧（グローバル）。register.pyで収集時にURLのhost部と完全一致でフィルタする。
 
 | カラム | 型 | 制約 | 説明 |
 |--------|-----|------|------|
@@ -159,6 +159,17 @@
 | updated_at | TIMESTAMPTZ | NOT NULL | 更新日時 |
 | updated_by | VARCHAR(25) | FK → user, NULL | 更新者 |
 | deleted_at | TIMESTAMPTZ | NULL | 論理削除日時 |
+
+### user_domain_block
+
+ユーザー単位のドメインブロック。フィード表示時にそのユーザーだけ該当ドメインの記事を除外する。domain_banlist（グローバル）との2層構造。
+
+| カラム | 型 | 制約 | 説明 |
+|--------|-----|------|------|
+| user_id | VARCHAR(25) | PK（複合）, FK → user, NOT NULL | |
+| domain | VARCHAR(255) | PK（複合）, NOT NULL | ブロック対象ドメイン |
+| created_at | TIMESTAMPTZ | NOT NULL, DEFAULT now() | 作成日時 |
+| updated_at | TIMESTAMPTZ | NOT NULL | 更新日時 |
 
 ### content
 
@@ -340,6 +351,7 @@
 | content | url | UNIQUE | 重複排除 |
 | feed_source | url | UNIQUE | ソース重複排除 |
 | domain_banlist | domain | UNIQUE | ブロックドメイン一意制約 |
+| user_domain_block | (user_id, domain) | PK | ユーザー別ドメインブロック |
 | category | slug | UNIQUE | カテゴリ検索 |
 | category | parent_id | INDEX | 子カテゴリ取得 |
 | content | category_id | INDEX | カテゴリ別記事取得 |

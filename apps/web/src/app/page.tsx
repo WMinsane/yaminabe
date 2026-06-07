@@ -19,13 +19,20 @@ export default async function FeedPage() {
     getDeliveryMode(user.id),
   ]);
 
+  // @ts-expect-error prisma generate未実行のためuserDomainBlockが型に存在しない
+  const blockedDomains: { domain: string }[] = await prisma.userDomainBlock.findMany({
+    where: { userId: user.id },
+    select: { domain: true },
+  });
+  const blockedSet = new Set(blockedDomains.map((b: { domain: string }) => b.domain));
+
   const selectedChildIds = userCategories.map((uc) => uc.categoryId);
   const categoryFilter =
     selectedChildIds.length > 0
       ? { categoryId: { in: selectedChildIds } }
       : {};
 
-  const contents = await prisma.content.findMany({
+  const allContents = await prisma.content.findMany({
     where: { deletedAt: null, ...categoryFilter },
     include: {
       category: { include: { parent: true } },
@@ -33,6 +40,17 @@ export default async function FeedPage() {
     },
     orderBy: { publishedAt: "desc" },
   });
+
+  const contents = blockedSet.size > 0
+    ? allContents.filter((c) => {
+        try {
+          const host = new URL(c.url).hostname.replace(/^www\./, "");
+          return !blockedSet.has(host);
+        } catch {
+          return true;
+        }
+      })
+    : allContents;
 
   const scores = scoreContents(
     contents.map((c) => ({

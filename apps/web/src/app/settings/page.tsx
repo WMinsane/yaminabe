@@ -34,6 +34,13 @@ export default async function SettingsPage() {
     }),
   ]);
 
+  // @ts-expect-error prisma generate未実行のためuserDomainBlockが型に存在しない
+  const blockedDomains: { domain: string }[] = await prisma.userDomainBlock.findMany({
+    where: { userId: user.id },
+    select: { domain: true },
+    orderBy: { createdAt: "desc" },
+  });
+
   const categories = parents.map((p) => ({
     id: p.id,
     name: p.name,
@@ -56,6 +63,7 @@ export default async function SettingsPage() {
       userEmail={user.email}
       userPlan={user.plan}
       userTags={tags}
+      blockedDomains={blockedDomains.map((b) => b.domain)}
     />
   );
 }
